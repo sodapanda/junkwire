@@ -89,6 +89,7 @@ func (q *BlockingQueue) GetWithTimeout(timeout time.Duration) *DataBuffer {
 	}
 }
 
+//GetSize get current size
 func (q *BlockingQueue) GetSize() int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
