@@ -53,6 +53,10 @@ func (d *TunInterface) Read() *ds.DataBuffer {
 	return dbf
 }
 
+func (d *TunInterface) Interrupt() {
+	d.queue.Interrupt()
+}
+
 func (d *TunInterface) Recycle(dbf *ds.DataBuffer) {
 	d.pool.PoolPut(dbf)
 }

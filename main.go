@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -15,10 +14,7 @@ func main() {
 
 func test() {
 	tun := device.NewTunInterface("faketcp", "10.1.1.1", 100)
-	dbf := tun.ReadTimeout(1 * time.Second)
-	if dbf == nil {
-		fmt.Println("time out")
-		return
-	}
-	fmt.Println(hex.Dump(dbf.Data[:dbf.Length]))
+	go tun.Read()
+	time.Sleep(2 * time.Second)
+	tun.Interrupt()
 }

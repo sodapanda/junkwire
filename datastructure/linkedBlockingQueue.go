@@ -9,12 +9,13 @@ import (
 
 //BlockingQueue 阻塞队列
 type BlockingQueue struct {
-	lock     *sync.Mutex
-	capacity int
-	notEmpty *sync.Cond
-	notFull  *sync.Cond
-	dataList *list.List
-	size     int
+	lock      *sync.Mutex
+	capacity  int
+	notEmpty  *sync.Cond
+	notFull   *sync.Cond
+	dataList  *list.List
+	interrupt bool
+	size      int
 }
 
 //NewBlockingQueue 创建队列
@@ -25,6 +26,7 @@ func NewBlockingQueue(capacity int) *BlockingQueue {
 	q.notEmpty = sync.NewCond(q.lock)
 	q.notFull = sync.NewCond(q.lock)
 	q.dataList = list.New()
+	q.interrupt = false
 	q.size = 0
 	return q
 }
@@ -41,13 +43,17 @@ func (q *BlockingQueue) Put(data *DataBuffer) {
 	q.notEmpty.Signal()
 }
 
-//Get item block if empty
+//Get item block if empty,return nil if interrupted
 func (q *BlockingQueue) Get() *DataBuffer {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	for q.size == 0 {
+	for q.size == 0 && !q.interrupt {
 		q.notEmpty.Wait()
+	}
+	if q.interrupt {
+		q.interrupt = false
+		return nil
 	}
 	element := q.dataList.Back()
 	rst := element.Value.(*DataBuffer)
@@ -55,6 +61,13 @@ func (q *BlockingQueue) Get() *DataBuffer {
 	q.dataList.Remove(element)
 	q.notFull.Signal()
 	return rst
+}
+
+func (q *BlockingQueue) Interrupt() {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	q.interrupt = true
+	q.notEmpty.Signal()
 }
 
 //GetWithTimeout Get item,block with given time
