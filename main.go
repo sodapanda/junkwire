@@ -21,22 +21,22 @@ func test() {
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
 
-	sc := connection.NewServerConn("10.1.1.2", 8888, tun, serverHandler{})
+	cc := connection.NewClientConn(tun, "10.1.1.2", "192.168.8.39", 8888, 9900, clientHandler{})
 
 	reader = bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
 
-	fmt.Println(sc)
+	fmt.Println(cc)
 }
 
-type serverHandler struct {
+type clientHandler struct {
 	name string
 }
 
-func (sh serverHandler) OnData([]byte) {
+func (ch clientHandler) OnData([]byte) {
 	fmt.Println("on data")
 }
 
-func (sh serverHandler) OnDisconnect() {
+func (ch clientHandler) OnDisconnect() {
 	fmt.Println("disconnect")
 }
