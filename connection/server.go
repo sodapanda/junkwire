@@ -184,7 +184,6 @@ func (sc *ServerConn) reset() {
 	result := make([]byte, 40)
 	cp.encode(result)
 	sc.tun.Write(result)
-	sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
 	sc.sendSeq = 1000
 }
 
