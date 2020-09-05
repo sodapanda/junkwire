@@ -2,7 +2,9 @@ package connection
 
 import (
 	"fmt"
+	"net"
 
+	"github.com/google/netstack/tcpip"
 	ds "github.com/sodapanda/junkwire/datastructure"
 	"github.com/sodapanda/junkwire/device"
 )
@@ -16,8 +18,8 @@ type ServerConnHandler interface {
 //ServerConn server connection
 type ServerConn struct {
 	tun                 *device.TunInterface
-	srcIP               string
-	dstIP               string
+	srcIP               tcpip.Address
+	dstIP               tcpip.Address
 	srcPort             uint16
 	dstPort             uint16
 	payloadsFromUpLayer *ds.BlockingQueue
@@ -32,7 +34,7 @@ type ServerConn struct {
 func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, handler ServerConnHandler) *ServerConn {
 	sc := new(ServerConn)
 	sc.tun = tun
-	sc.srcIP = srcIP
+	sc.srcIP = tcpip.Address(net.ParseIP(srcIP).To4())
 	sc.srcPort = srcPort
 	sc.payloadsFromUpLayer = ds.NewBlockingQueue(500)
 	sc.handler = handler

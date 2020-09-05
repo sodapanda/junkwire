@@ -9,8 +9,8 @@ import (
 //ConnPacket connectiong packet IP TCP header
 type ConnPacket struct {
 	ipID    uint16
-	srcIP   string
-	dstIP   string
+	srcIP   tcpip.Address
+	dstIP   tcpip.Address
 	srcPort uint16
 	dstPort uint16
 	syn     bool
@@ -35,8 +35,8 @@ func (cp *ConnPacket) encode(result []byte) uint16 {
 	ipHeader.TTL = 60
 	ipHeader.Protocol = 6
 	ipHeader.Checksum = 0
-	ipHeader.SrcAddr = tcpip.Address(cp.srcIP)
-	ipHeader.DstAddr = tcpip.Address(cp.dstIP)
+	ipHeader.SrcAddr = cp.srcIP.To4()
+	ipHeader.DstAddr = cp.dstIP.To4()
 
 	ipPacket.Encode(&ipHeader)
 	ipPacket.SetChecksum(^ipPacket.CalculateChecksum())
@@ -75,12 +75,14 @@ func (cp *ConnPacket) decode(data []byte) {
 	ipHeader := header.IPv4(data[0:])
 	tcpHeader := header.TCP(data[header.IPv4MinimumSize:])
 	cp.ipID = ipHeader.ID()
-	cp.srcIP = ipHeader.SourceAddress().String()
-	cp.dstIP = ipHeader.DestinationAddress().String()
+	cp.srcIP = ipHeader.SourceAddress().To4()
+	cp.dstIP = ipHeader.DestinationAddress().To4()
 	cp.syn = tcpHeader.Flags()&header.TCPFlagSyn != 0
 	cp.ack = tcpHeader.Flags()&header.TCPFlagAck != 0
 	cp.rst = tcpHeader.Flags()&header.TCPFlagRst != 0
 	cp.seqNum = tcpHeader.SequenceNumber()
 	cp.ackNum = tcpHeader.AckNumber()
+	cp.srcPort = tcpHeader.SourcePort()
+	cp.dstPort = tcpHeader.DestinationPort()
 	cp.payload = data[header.IPv4MinimumSize+header.TCPMinimumSize:] //todo 注意tcp mss的影响
 }
