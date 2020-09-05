@@ -1,22 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"testing"
-
-	"github.com/sodapanda/junkwire/datastructure"
 )
 
 func TestFsm(t *testing.T) {
-	fsm := datastructure.NewFsm("closed")
-	fsm.AddRule("closed", "doOpen", "opend", func() {
-		fmt.Println("close to open")
-	})
+	// fsm := datastructure.NewFsm("closed")
+	// fsm.AddRule("closed", datastructure.Event{Name: "doOpen"}, "open", func(ev datastructure.Event) {
+	// 	fmt.Println("open")
+	// })
+	// fsm.AddRule("open", datastructure.Event{Name: "doClose"}, "closed", func(ev datastructure.Event) {
+	// 	fmt.Println("close")
+	// })
 
-	fsm.AddRule("opend", "doClose", "closed", func() {
-		fmt.Println("open to close")
-	})
-
-	fsm.OnEvent("doOpen")
-	fsm.OnEvent("doClose")
+	// fsm.OnEvent(datastructure.Event{Name: "doOpen"})
+	// fsm.OnEvent(datastructure.Event{Name: "doClose"})
 }
