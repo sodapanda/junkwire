@@ -50,11 +50,9 @@ func (kp *keeper) start() {
 		if lossCount > 2 {
 			fmt.Println("disconnect! keep alive loss ", lossCount)
 			kp.callback()
-			kp.lock.Unlock()
 			break
 		}
 		if kp.stopFlag {
-			kp.lock.Unlock()
 			break
 		}
 	}

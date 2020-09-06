@@ -36,7 +36,7 @@ func testClient() {
 		cc := connection.NewClientConn(tun, "10.1.1.2", "58.32.3.36", 8888, 10356, clientHandler{})
 		cc.WaitStop()
 		fmt.Println("client stop restart")
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 
