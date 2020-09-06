@@ -38,7 +38,7 @@ type ClientConn struct {
 }
 
 //NewClientConn new client connection
-func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort uint16, dstPort uint16, handler ClientConnHandler) *ClientConn {
+func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort uint16, dstPort uint16) *ClientConn {
 	cc := new(ClientConn)
 	cc.pool = ds.NewDataBufferPool()
 	cc.payloadsFromUpLayer = ds.NewBlockingQueue(500)
@@ -48,7 +48,6 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.srcPort = srcPort
 	cc.dstPort = dstPort
 	cc.sendSeq = 1000
-	cc.handler = handler
 	cc.tunStopChan = make(chan string, 1)
 	cc.readLoopStopChan = make(chan string, 1)
 	cc.kp = newKeeper(cc, func() {
@@ -158,6 +157,11 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	go cc.readLoop(cc.readLoopStopChan)
 	go cc.q2Tun(cc.tunStopChan)
 	return cc
+}
+
+//AddHandler add callback
+func (cc *ClientConn) AddHandler(handler ClientConnHandler) {
+	cc.handler = handler
 }
 
 //WaitStop block wait for stop

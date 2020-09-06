@@ -32,13 +32,12 @@ type ServerConn struct {
 }
 
 //NewServerConn create server connection
-func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, handler ServerConnHandler) *ServerConn {
+func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *ServerConn {
 	sc := new(ServerConn)
 	sc.tun = tun
 	sc.srcIP = tcpip.Address(net.ParseIP(srcIP).To4())
 	sc.srcPort = srcPort
 	sc.payloadsFromUpLayer = ds.NewBlockingQueue(500)
-	sc.handler = handler
 	sc.sendSeq = 1000
 	sc.pool = ds.NewDataBufferPool()
 
@@ -143,6 +142,11 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, handl
 	go sc.q2Tun()
 	go sc.readLoop()
 	return sc
+}
+
+//AddHandler add handler callback
+func (sc *ServerConn) AddHandler(handler ServerConnHandler) {
+	sc.handler = handler
 }
 
 func (sc *ServerConn) readLoop() {
