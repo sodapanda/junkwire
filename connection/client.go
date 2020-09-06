@@ -180,7 +180,7 @@ func (cc *ClientConn) reset() {
 	cp.srcPort = cc.srcPort
 	cp.dstPort = cc.dstPort
 	cp.seqNum = cc.sendSeq
-	cp.ackNum = cc.lastRcvSeq + 1
+	cp.ackNum = cc.lastRcvSeq
 	cp.payload = nil
 	result := make([]byte, 40)
 	cp.encode(result)
@@ -198,6 +198,7 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 			break
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
+		cc.lastRcvSeq = cp.seqNum
 		if cp.push { //心跳包处理
 			content := binary.BigEndian.Uint64(cp.payload)
 			cc.kp.rcv(content)

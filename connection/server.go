@@ -62,7 +62,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcPort = sc.srcPort
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.sendSeq
-		cp.ackNum = sc.lastRcvSeq + 1
+		cp.ackNum = sc.lastRcvSeq
 		cp.payload = nil
 		result := make([]byte, 40)
 		len := cp.encode(result)
@@ -100,7 +100,6 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvack"}, "estb", func(et ds.Event) {
 		fmt.Println("server estab")
 		cp := et.ConnPacket.(ConnPacket)
-		sc.lastRcvSeq = cp.seqNum
 		if cp.payload != nil && len(cp.payload) > 0 {
 			sc.handler.OnData(cp.payload, sc)
 		}
@@ -120,7 +119,6 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 
 	sc.fsm.AddRule("estb", ds.Event{Name: "rcvack"}, "estb", func(et ds.Event) {
 		cp := et.ConnPacket.(ConnPacket)
-		sc.lastRcvSeq = cp.seqNum
 		if cp.payload != nil && len(cp.payload) > 0 {
 			sc.handler.OnData(cp.payload, sc)
 		}
@@ -157,6 +155,7 @@ func (sc *ServerConn) readLoop() {
 			return
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
+		sc.lastRcvSeq = cp.seqNum
 		if cp.push {
 			sc.Write(cp.payload, true)
 			sc.tun.Recycle(dataBuffer)
@@ -189,7 +188,7 @@ func (sc *ServerConn) reset() {
 	cp.srcPort = sc.srcPort
 	cp.dstPort = sc.dstPort
 	cp.seqNum = sc.sendSeq
-	cp.ackNum = sc.lastRcvSeq + 1
+	cp.ackNum = sc.lastRcvSeq
 	cp.payload = nil
 	result := make([]byte, 40)
 	cp.encode(result)

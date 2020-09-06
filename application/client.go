@@ -12,6 +12,7 @@ type AppClient struct {
 	conn       *net.UDPConn
 	connAddr   *net.UDPAddr
 	clientConn *connection.ClientConn
+	rcv        int
 }
 
 //NewAppClient new client
@@ -56,6 +57,8 @@ type clientHandler struct {
 }
 
 func (ch clientHandler) OnData(data []byte) {
+	ch.ac.rcv++
+	// fmt.Println("client onData ", len(data), ch.ac.rcv)
 	_, err := ch.ac.conn.WriteToUDP(data, ch.ac.connAddr)
 	misc.CheckErr(err)
 }

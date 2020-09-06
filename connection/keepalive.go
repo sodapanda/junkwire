@@ -34,7 +34,7 @@ func (kp *keeper) start() {
 			kp.send()
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		kp.lock.Lock()
 		lossCount := 0
@@ -44,7 +44,7 @@ func (kp *keeper) start() {
 			}
 		}
 		kp.lock.Unlock()
-		if lossCount > 2 {
+		if lossCount > 3 {
 			fmt.Println("disconnect! keep alive loss ", lossCount)
 			kp.callback()
 			break
