@@ -131,7 +131,6 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	})
 
 	cc.fsm.AddRule("estb", ds.Event{Name: "rcvack"}, "estb", func(ev ds.Event) {
-		fmt.Println("recv ack")
 		cp := ev.ConnPacket.(ConnPacket)
 		if cp.payload != nil && len(cp.payload) > 0 {
 			cc.handler.OnData(cp.payload)

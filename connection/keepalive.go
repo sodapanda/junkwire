@@ -28,7 +28,6 @@ func newKeeper(cc *ClientConn, lostCallback func()) *keeper {
 
 func (kp *keeper) start() {
 	for {
-		fmt.Println("keeper start round")
 		kp.kpMap = make(map[uint64]uint64)
 		for i := 0; i < 5; i++ {
 			time.Sleep(100 * time.Millisecond)
@@ -43,10 +42,8 @@ func (kp *keeper) start() {
 			if rtt == 0 {
 				lossCount++
 			}
-			fmt.Printf("rtt %d ", rtt)
 		}
 		kp.lock.Unlock()
-		fmt.Println("")
 		if lossCount > 2 {
 			fmt.Println("disconnect! keep alive loss ", lossCount)
 			kp.callback()

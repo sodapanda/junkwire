@@ -119,7 +119,6 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 	})
 
 	sc.fsm.AddRule("estb", ds.Event{Name: "rcvack"}, "estb", func(et ds.Event) {
-		fmt.Println("server rcv data")
 		cp := et.ConnPacket.(ConnPacket)
 		sc.lastRcvSeq = cp.seqNum
 		if cp.payload != nil && len(cp.payload) > 0 {

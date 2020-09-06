@@ -1,0 +1,30 @@
+{
+    "mode": "client",
+    "server": {
+        "tun": {
+            "deviceIP": "10.1.1.1",
+            "port": "10356",
+            "srcIP": "10.1.1.2"
+        },
+        "socket": {
+            "dstIP": "127.0.0.1",
+            "dstPort": "21007"
+        }
+    },
+    "client": {
+        "tun": {
+            "deviceIP": "10.1.1.1",
+            "port": "8888",
+            "srcIP": "10.1.1.2",
+            "peers": [
+                {
+                    "ip": "58.32.3.36",
+                    "port": "10356"
+                }
+            ]
+        },
+        "socket": {
+            "listenPort": "21007"
+        }
+    }
+}
