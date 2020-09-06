@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/sodapanda/junkwire/connection"
 	"github.com/sodapanda/junkwire/device"
@@ -11,24 +13,49 @@ import (
 
 func main() {
 	fmt.Println("start")
-	test()
+
+	fIsServer := flag.Bool("s", false, "server")
+	flag.Parse()
+	isServer := *fIsServer
+
+	if isServer {
+		testServer()
+	} else {
+		testClient()
+	}
 }
 
-func test() {
+func testClient() {
 	tun := device.NewTunInterface("faketcp", "10.1.1.1", 100)
 
 	fmt.Println("continue?")
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
 
-	cc := connection.NewClientConn(tun, "10.1.1.2", "192.168.8.39", 8888, 9900, clientHandler{})
+	for {
+		cc := connection.NewClientConn(tun, "10.1.1.2", "58.32.3.36", 8888, 10356, clientHandler{})
+		cc.WaitStop()
+		fmt.Println("client stop restart")
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func testServer() {
+	tun := device.NewTunInterface("faketcp", "10.1.1.1", 100)
+
+	fmt.Println("continue?")
+	reader := bufio.NewReader(os.Stdin)
+	reader.ReadString('\n')
+
+	sc := connection.NewServerConn("10.1.1.2", 10356, tun, serverHandler{})
 
 	reader = bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
 
-	fmt.Println(cc)
+	fmt.Println(sc)
 }
 
+///
 type clientHandler struct {
 	name string
 }
@@ -37,6 +64,25 @@ func (ch clientHandler) OnData([]byte) {
 	fmt.Println("on data")
 }
 
-func (ch clientHandler) OnDisconnect() {
+func (ch clientHandler) OnDisconnect(cc *connection.ClientConn) {
 	fmt.Println("disconnect")
+}
+
+func (ch clientHandler) OnConnect(cc *connection.ClientConn) {
+	fmt.Println("connect")
+}
+
+///
+type serverHandler struct {
+	name string
+}
+
+func (ch serverHandler) OnData([]byte) {
+	fmt.Println("on data")
+}
+
+func (ch serverHandler) OnDisconnect() {
+	fmt.Println("disconnect")
+
+	testClient()
 }

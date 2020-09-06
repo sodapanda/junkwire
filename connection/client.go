@@ -12,7 +12,8 @@ import (
 //ClientConnHandler handler
 type ClientConnHandler interface {
 	OnData([]byte)
-	OnDisconnect()
+	OnDisconnect(cc *ClientConn)
+	OnConnect(cc *ClientConn)
 }
 
 //ClientConn client connection
@@ -28,6 +29,8 @@ type ClientConn struct {
 	pool                *ds.DataBufferPool
 	fsm                 *ds.Fsm
 	handler             ClientConnHandler
+	tunStopChan         chan string
+	readLoopStopChan    chan string
 }
 
 //NewClientConn new client connection
@@ -42,6 +45,8 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.dstPort = dstPort
 	cc.sendSeq = 1000
 	cc.handler = handler
+	cc.tunStopChan = make(chan string, 1)
+	cc.readLoopStopChan = make(chan string, 1)
 
 	cc.fsm = ds.NewFsm("stop")
 
@@ -93,6 +98,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 
 	cc.fsm.AddRule("gotsynsck", ds.Event{Name: "sdack"}, "estb", func(ev ds.Event) {
 		fmt.Println("client estb")
+		cc.handler.OnConnect(cc)
 	})
 
 	cc.fsm.AddRule("estb", ds.Event{Name: "rcvsynack"}, "error", func(ev ds.Event) {
@@ -116,15 +122,24 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	})
 
 	cc.fsm.AddRule("error", ds.Event{Name: "sdrst"}, "stop", func(ev ds.Event) {
-		cc.handler.OnDisconnect()
+		cc.tun.Interrupt()
+		cc.payloadsFromUpLayer.Interrupt()
+		cc.handler.OnDisconnect(cc)
+		//todo 清理队列里没消费的
 		fmt.Println("stop state")
 	})
 
 	cc.fsm.OnEvent(ds.Event{Name: "sdsyn"})
 
-	go cc.readLoop()
-	go cc.q2Tun()
+	go cc.readLoop(cc.readLoopStopChan)
+	go cc.q2Tun(cc.tunStopChan)
 	return cc
+}
+
+//WaitStop block wait for stop
+func (cc *ClientConn) WaitStop() {
+	<-cc.readLoopStopChan
+	<-cc.tunStopChan
 }
 
 func (cc *ClientConn) reset() {
@@ -146,13 +161,13 @@ func (cc *ClientConn) reset() {
 	cc.sendSeq = 1000
 }
 
-func (cc *ClientConn) readLoop() {
+func (cc *ClientConn) readLoop(stopChan chan string) {
 	for {
 		dataBuffer := cc.tun.Read()
 		cp := ConnPacket{}
 		if dataBuffer == nil || dataBuffer.Length == 0 {
 			fmt.Println("client conn loop exit")
-			return
+			break
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
 		et := ds.Event{}
@@ -168,6 +183,8 @@ func (cc *ClientConn) readLoop() {
 		cc.fsm.OnEvent(et)
 		cc.tun.Recycle(dataBuffer)
 	}
+
+	stopChan <- "readLoopStop"
 }
 
 func (cc *ClientConn) Write(data []byte) {
@@ -178,10 +195,16 @@ func (cc *ClientConn) Write(data []byte) {
 	cc.sendSeq = cc.sendSeq + uint32(dbf.Length)
 }
 
-func (cc *ClientConn) q2Tun() {
+func (cc *ClientConn) q2Tun(stopChan chan string) {
 	for {
 		dbf := cc.payloadsFromUpLayer.Get()
+		if dbf == nil {
+			fmt.Println("q2tun read end")
+			break
+		}
 		cc.tun.Write(dbf.Data[:dbf.Length])
 		cc.pool.PoolPut(dbf)
 	}
+
+	stopChan <- "queue to tun stop"
 }
