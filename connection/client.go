@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 
@@ -32,6 +33,7 @@ type ClientConn struct {
 	handler             ClientConnHandler
 	tunStopChan         chan string
 	readLoopStopChan    chan string
+	kp                  *keeper
 }
 
 //NewClientConn new client connection
@@ -48,6 +50,11 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.handler = handler
 	cc.tunStopChan = make(chan string, 1)
 	cc.readLoopStopChan = make(chan string, 1)
+	cc.kp = newKeeper(cc, func() {
+		cc.tun.Interrupt()
+		cc.payloadsFromUpLayer.Interrupt()
+		cc.handler.OnDisconnect(cc)
+	})
 
 	cc.fsm = ds.NewFsm("stop")
 
@@ -102,6 +109,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.fsm.AddRule("gotsynsck", ds.Event{Name: "sdack"}, "estb", func(ev ds.Event) {
 		fmt.Println("client estb")
 		cc.handler.OnConnect(cc)
+		go cc.kp.start()
 	})
 
 	cc.fsm.AddRule("estb", ds.Event{Name: "rcvsynack"}, "error", func(ev ds.Event) {
@@ -174,6 +182,12 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 			break
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
+		if cp.push { //心跳包处理
+			content := binary.BigEndian.Uint64(cp.payload)
+			cc.kp.rcv(content)
+			cc.tun.Recycle(dataBuffer)
+			continue
+		}
 		et := ds.Event{}
 		if cp.syn && cp.ack {
 			et.Name = "rcvsynack"
@@ -191,7 +205,7 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 	stopChan <- "readLoopStop"
 }
 
-func (cc *ClientConn) Write(data []byte) {
+func (cc *ClientConn) Write(data []byte, isKp bool) {
 	dbf := cc.pool.PoolGet()
 	cc.sendSeq = cc.sendSeq + uint32(dbf.Length)
 	cp := ConnPacket{}
@@ -204,6 +218,9 @@ func (cc *ClientConn) Write(data []byte) {
 	cp.syn = false
 	cp.ack = true
 	cp.rst = false
+	if isKp {
+		cp.push = true
+	}
 	cp.seqNum = cc.sendSeq
 	cp.ackNum = cc.lastRcvSeq
 	cp.payload = data

@@ -154,6 +154,11 @@ func (sc *ServerConn) readLoop() {
 			return
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
+		if cp.push {
+			sc.Write(cp.payload, true)
+			sc.tun.Recycle(dataBuffer)
+			continue
+		}
 		et := ds.Event{}
 		if cp.syn {
 			et.Name = "rcvsyn"
@@ -190,7 +195,7 @@ func (sc *ServerConn) reset() {
 	sc.sendSeq = 1000
 }
 
-func (sc *ServerConn) Write(data []byte) {
+func (sc *ServerConn) Write(data []byte, isKp bool) {
 	dbf := sc.pool.PoolGet()
 	sc.sendSeq = sc.sendSeq + uint32(dbf.Length)
 	cp := ConnPacket{}
@@ -203,6 +208,9 @@ func (sc *ServerConn) Write(data []byte) {
 	cp.syn = false
 	cp.ack = true
 	cp.rst = false
+	if isKp {
+		cp.push = true
+	}
 	cp.seqNum = sc.sendSeq
 	cp.ackNum = sc.lastRcvSeq
 	cp.payload = data

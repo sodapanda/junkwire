@@ -16,6 +16,7 @@ type ConnPacket struct {
 	syn     bool
 	ack     bool
 	rst     bool
+	push    bool
 	seqNum  uint32
 	ackNum  uint32
 	payload []byte
@@ -59,6 +60,9 @@ func (cp *ConnPacket) encode(result []byte) uint16 {
 	if cp.rst {
 		tcpHeader.Flags = tcpHeader.Flags | header.TCPFlagRst
 	}
+	if cp.push {
+		tcpHeader.Flags = tcpHeader.Flags | header.TCPFlagPsh
+	}
 	tcpHeader.WindowSize = 65000
 	tcpHeader.Checksum = 0
 	tcpHeader.UrgentPointer = 0
@@ -80,6 +84,7 @@ func (cp *ConnPacket) decode(data []byte) {
 	cp.syn = tcpHeader.Flags()&header.TCPFlagSyn != 0
 	cp.ack = tcpHeader.Flags()&header.TCPFlagAck != 0
 	cp.rst = tcpHeader.Flags()&header.TCPFlagRst != 0
+	cp.push = tcpHeader.Flags()&header.TCPFlagPsh != 0
 	cp.seqNum = tcpHeader.SequenceNumber()
 	cp.ackNum = tcpHeader.AckNumber()
 	cp.srcPort = tcpHeader.SourcePort()

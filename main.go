@@ -70,7 +70,7 @@ func (ch clientHandler) OnDisconnect(cc *connection.ClientConn) {
 
 func (ch clientHandler) OnConnect(cc *connection.ClientConn) {
 	fmt.Println("connect")
-	cc.Write([]byte("hell0!"))
+	cc.Write([]byte("hell0!"), false)
 }
 
 ///
@@ -80,7 +80,7 @@ type serverHandler struct {
 
 func (ch serverHandler) OnData(data []byte, sc *connection.ServerConn) {
 	fmt.Println("on data ", string(data))
-	sc.Write(data)
+	sc.Write(data, false)
 }
 
 func (ch serverHandler) OnDisconnect() {
