@@ -11,7 +11,7 @@ import (
 
 //ServerConnHandler handler callback
 type ServerConnHandler interface {
-	OnData([]byte)
+	OnData([]byte, *ServerConn)
 	OnDisconnect()
 }
 
@@ -26,6 +26,7 @@ type ServerConn struct {
 	lastRcvSeq          uint32
 	fsm                 *ds.Fsm
 	sendSeq             uint32
+	sendID              uint16
 	handler             ServerConnHandler
 	pool                *ds.DataBufferPool
 }
@@ -73,6 +74,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, handl
 
 		sc.tun.Write(result)
 		sc.sendSeq++
+		sc.sendID++
 		sc.fsm.OnEvent(ds.Event{Name: "sdsynack"})
 	})
 
@@ -101,7 +103,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, handl
 		cp := et.ConnPacket.(ConnPacket)
 		sc.lastRcvSeq = cp.seqNum
 		if cp.payload != nil && len(cp.payload) > 0 {
-			sc.handler.OnData(cp.payload)
+			sc.handler.OnData(cp.payload, sc)
 		}
 	})
 
@@ -122,7 +124,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, handl
 		cp := et.ConnPacket.(ConnPacket)
 		sc.lastRcvSeq = cp.seqNum
 		if cp.payload != nil && len(cp.payload) > 0 {
-			sc.handler.OnData(cp.payload)
+			sc.handler.OnData(cp.payload, sc)
 		}
 	})
 
@@ -184,15 +186,29 @@ func (sc *ServerConn) reset() {
 	result := make([]byte, 40)
 	cp.encode(result)
 	sc.tun.Write(result)
+	sc.sendID = 0
 	sc.sendSeq = 1000
 }
 
 func (sc *ServerConn) Write(data []byte) {
 	dbf := sc.pool.PoolGet()
-	copy(dbf.Data, data)
-	dbf.Length = len(data)
-	sc.payloadsFromUpLayer.Put(dbf)
 	sc.sendSeq = sc.sendSeq + uint32(dbf.Length)
+	cp := ConnPacket{}
+	cp.ipID = sc.sendID
+	sc.sendID++
+	cp.srcIP = sc.srcIP
+	cp.dstIP = sc.dstIP
+	cp.srcPort = sc.srcPort
+	cp.dstPort = sc.dstPort
+	cp.syn = false
+	cp.ack = true
+	cp.rst = false
+	cp.seqNum = sc.sendSeq
+	cp.ackNum = sc.lastRcvSeq
+	cp.payload = data
+	length := cp.encode(dbf.Data)
+	dbf.Length = int(length)
+	sc.payloadsFromUpLayer.Put(dbf)
 }
 
 func (sc *ServerConn) q2Tun() {

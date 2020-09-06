@@ -60,8 +60,8 @@ type clientHandler struct {
 	name string
 }
 
-func (ch clientHandler) OnData([]byte) {
-	fmt.Println("on data")
+func (ch clientHandler) OnData(data []byte) {
+	fmt.Println("on data ", string(data))
 }
 
 func (ch clientHandler) OnDisconnect(cc *connection.ClientConn) {
@@ -70,6 +70,7 @@ func (ch clientHandler) OnDisconnect(cc *connection.ClientConn) {
 
 func (ch clientHandler) OnConnect(cc *connection.ClientConn) {
 	fmt.Println("connect")
+	cc.Write([]byte("hell0!"))
 }
 
 ///
@@ -77,8 +78,9 @@ type serverHandler struct {
 	name string
 }
 
-func (ch serverHandler) OnData([]byte) {
-	fmt.Println("on data")
+func (ch serverHandler) OnData(data []byte, sc *connection.ServerConn) {
+	fmt.Println("on data ", string(data))
+	sc.Write(data)
 }
 
 func (ch serverHandler) OnDisconnect() {

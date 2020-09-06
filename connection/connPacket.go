@@ -22,7 +22,7 @@ type ConnPacket struct {
 }
 
 func (cp *ConnPacket) encode(result []byte) uint16 {
-	copy(cp.payload, result[40:])
+	copy(result[40:], cp.payload)
 	ipPacket := header.IPv4(result[0:])
 	//IP header
 	ipHeader := header.IPv4Fields{}

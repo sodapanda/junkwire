@@ -24,6 +24,7 @@ type ClientConn struct {
 	srcPort             uint16
 	dstPort             uint16
 	sendSeq             uint32
+	sendID              uint16
 	lastRcvSeq          uint32
 	payloadsFromUpLayer *ds.BlockingQueue
 	pool                *ds.DataBufferPool
@@ -63,6 +64,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.seqNum = cc.sendSeq
 		cp.payload = nil
 		cp.rst = false
+		cp.ipID++
 
 		result := make([]byte, 40)
 		cp.encode(result)
@@ -83,6 +85,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.seqNum = cc.sendSeq
 		cp.payload = nil
 		cp.rst = false
+		cp.ipID++
 
 		result := make([]byte, 40)
 		cp.encode(result)
@@ -159,6 +162,7 @@ func (cc *ClientConn) reset() {
 	cp.encode(result)
 	cc.tun.Write(result)
 	cc.sendSeq = 1000
+	cc.sendID = 0
 }
 
 func (cc *ClientConn) readLoop(stopChan chan string) {
@@ -189,10 +193,23 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 
 func (cc *ClientConn) Write(data []byte) {
 	dbf := cc.pool.PoolGet()
-	copy(dbf.Data, data)
-	dbf.Length = len(data)
-	cc.payloadsFromUpLayer.Put(dbf)
 	cc.sendSeq = cc.sendSeq + uint32(dbf.Length)
+	cp := ConnPacket{}
+	cp.ipID = cc.sendID
+	cc.sendID++
+	cp.srcIP = cc.srcIP
+	cp.dstIP = cc.dstIP
+	cp.srcPort = cc.srcPort
+	cp.dstPort = cc.dstPort
+	cp.syn = false
+	cp.ack = true
+	cp.rst = false
+	cp.seqNum = cc.sendSeq
+	cp.ackNum = cc.lastRcvSeq
+	cp.payload = data
+	length := cp.encode(dbf.Data)
+	dbf.Length = int(length)
+	cc.payloadsFromUpLayer.Put(dbf)
 }
 
 func (cc *ClientConn) q2Tun(stopChan chan string) {
