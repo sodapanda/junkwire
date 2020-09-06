@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/google/netstack/tcpip"
 	ds "github.com/sodapanda/junkwire/datastructure"
@@ -77,6 +78,18 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.encode(result)
 		cc.tun.Write(result)
 		cc.sendSeq++
+		go func() {
+			time.Sleep(1 * time.Second)
+			cc.fsm.OnEvent(ds.Event{Name: "synTimeout"})
+		}()
+	})
+
+	cc.fsm.AddRule("synsd", ds.Event{Name: "synTimeout"}, "stop", func(ev ds.Event) {
+		fmt.Println("timeout")
+
+		cc.tun.Interrupt()
+		cc.payloadsFromUpLayer.Interrupt()
+		cc.handler.OnDisconnect(cc)
 	})
 
 	cc.fsm.AddRule("synsd", ds.Event{Name: "rcvsynack"}, "gotsynsck", func(ev ds.Event) {
