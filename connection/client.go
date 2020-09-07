@@ -25,9 +25,10 @@ type ClientConn struct {
 	dstIP               tcpip.Address
 	srcPort             uint16
 	dstPort             uint16
-	sendSeq             uint32
 	sendID              uint16
 	lastRcvSeq          uint32
+	lastRcvLen          uint32
+	lastRcvAck          uint32
 	payloadsFromUpLayer *ds.BlockingQueue
 	pool                *ds.DataBufferPool
 	fsm                 *ds.Fsm
@@ -47,7 +48,6 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.dstIP = tcpip.Address(net.ParseIP(dstIP).To4())
 	cc.srcPort = srcPort
 	cc.dstPort = dstPort
-	cc.sendSeq = 1000
 	cc.tunStopChan = make(chan string, 1)
 	cc.readLoopStopChan = make(chan string, 1)
 	cc.kp = newKeeper(cc, func() {
@@ -67,8 +67,8 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.srcPort = cc.srcPort
 		cp.dstPort = cc.dstPort
 		cp.ack = false
-		cp.ackNum = 0
-		cp.seqNum = cc.sendSeq
+		cp.ackNum = 1100
+		cp.seqNum = 1000 //client的第一个seq是随机的
 		cp.payload = nil
 		cp.rst = false
 		cp.ipID++
@@ -76,7 +76,6 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		result := make([]byte, 40)
 		cp.encode(result)
 		cc.tun.Write(result)
-		cc.sendSeq++
 		go func() {
 			time.Sleep(1 * time.Second)
 			cc.fsm.OnEvent(ds.Event{Name: "synTimeout"})
@@ -100,8 +99,8 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.srcPort = cc.srcPort
 		cp.dstPort = cc.dstPort
 		cp.ack = true
-		cp.ackNum = cc.lastRcvSeq
-		cp.seqNum = cc.sendSeq
+		cp.ackNum = cc.lastRcvSeq + cc.lastRcvLen
+		cp.seqNum = cc.lastRcvAck
 		cp.payload = nil
 		cp.rst = false
 		cp.ipID++
@@ -179,13 +178,12 @@ func (cc *ClientConn) reset() {
 	cp.dstIP = cc.dstIP
 	cp.srcPort = cc.srcPort
 	cp.dstPort = cc.dstPort
-	cp.seqNum = cc.sendSeq
-	cp.ackNum = cc.lastRcvSeq
+	cp.seqNum = cc.lastRcvAck
+	cp.ackNum = cc.lastRcvSeq + cc.lastRcvLen
 	cp.payload = nil
 	result := make([]byte, 40)
 	cp.encode(result)
 	cc.tun.Write(result)
-	cc.sendSeq = 1000
 	cc.sendID = 0
 }
 
@@ -199,6 +197,11 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
 		cc.lastRcvSeq = cp.seqNum
+		cc.lastRcvAck = cp.ackNum
+		cc.lastRcvLen = uint32(len(cp.payload))
+		if cp.syn {
+			cc.lastRcvLen = 1
+		}
 		if cp.push { //心跳包处理
 			content := binary.BigEndian.Uint64(cp.payload)
 			cc.kp.rcv(content)
@@ -224,7 +227,6 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 
 func (cc *ClientConn) Write(data []byte, isKp bool) {
 	dbf := cc.pool.PoolGet()
-	cc.sendSeq = cc.sendSeq + uint32(dbf.Length)
 	cp := ConnPacket{}
 	cp.ipID = cc.sendID
 	cc.sendID++
@@ -238,8 +240,8 @@ func (cc *ClientConn) Write(data []byte, isKp bool) {
 	if isKp {
 		cp.push = true
 	}
-	cp.seqNum = cc.sendSeq
-	cp.ackNum = cc.lastRcvSeq
+	cp.seqNum = cc.lastRcvAck
+	cp.ackNum = cc.lastRcvSeq + cc.lastRcvLen
 	cp.payload = data
 	length := cp.encode(dbf.Data)
 	dbf.Length = int(length)

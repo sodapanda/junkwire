@@ -24,8 +24,9 @@ type ServerConn struct {
 	dstPort             uint16
 	payloadsFromUpLayer *ds.BlockingQueue
 	lastRcvSeq          uint32
+	lastRcvAck          uint32
+	lastRcvLen          uint32
 	fsm                 *ds.Fsm
-	sendSeq             uint32
 	sendID              uint16
 	handler             ServerConnHandler
 	pool                *ds.DataBufferPool
@@ -38,7 +39,6 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 	sc.srcIP = tcpip.Address(net.ParseIP(srcIP).To4())
 	sc.srcPort = srcPort
 	sc.payloadsFromUpLayer = ds.NewBlockingQueue(500)
-	sc.sendSeq = 1000
 	sc.pool = ds.NewDataBufferPool()
 
 	sc.fsm = ds.NewFsm("stop")
@@ -50,7 +50,6 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 	sc.fsm.AddRule("waitsyn", ds.Event{Name: "rcvsyn"}, "gotSyn", func(et ds.Event) {
 		fmt.Println("server got syn then send syn ack")
 		cp := et.ConnPacket.(ConnPacket)
-		sc.lastRcvSeq = cp.seqNum
 		sc.dstIP = cp.srcIP
 		sc.dstPort = cp.srcPort
 
@@ -61,8 +60,8 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
 		cp.dstPort = sc.dstPort
-		cp.seqNum = sc.sendSeq
-		cp.ackNum = sc.lastRcvSeq
+		cp.seqNum = sc.lastRcvAck
+		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
 		cp.payload = nil
 		result := make([]byte, 40)
 		len := cp.encode(result)
@@ -72,7 +71,6 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		}
 
 		sc.tun.Write(result)
-		sc.sendSeq++
 		sc.sendID++
 		sc.fsm.OnEvent(ds.Event{Name: "sdsynack"})
 	})
@@ -156,6 +154,12 @@ func (sc *ServerConn) readLoop() {
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
 		sc.lastRcvSeq = cp.seqNum
+		sc.lastRcvAck = cp.ackNum
+		sc.lastRcvLen = uint32(len(cp.payload))
+		if cp.syn {
+			sc.lastRcvLen = 1
+		}
+
 		if cp.push {
 			sc.Write(cp.payload, true)
 			sc.tun.Recycle(dataBuffer)
@@ -187,19 +191,17 @@ func (sc *ServerConn) reset() {
 	cp.dstIP = sc.dstIP
 	cp.srcPort = sc.srcPort
 	cp.dstPort = sc.dstPort
-	cp.seqNum = sc.sendSeq
-	cp.ackNum = sc.lastRcvSeq
+	cp.seqNum = sc.lastRcvAck
+	cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
 	cp.payload = nil
 	result := make([]byte, 40)
 	cp.encode(result)
 	sc.tun.Write(result)
 	sc.sendID = 0
-	sc.sendSeq = 1000
 }
 
 func (sc *ServerConn) Write(data []byte, isKp bool) {
 	dbf := sc.pool.PoolGet()
-	sc.sendSeq = sc.sendSeq + uint32(dbf.Length)
 	cp := ConnPacket{}
 	cp.ipID = sc.sendID
 	sc.sendID++
@@ -213,8 +215,8 @@ func (sc *ServerConn) Write(data []byte, isKp bool) {
 	if isKp {
 		cp.push = true
 	}
-	cp.seqNum = sc.sendSeq
-	cp.ackNum = sc.lastRcvSeq
+	cp.seqNum = sc.lastRcvAck
+	cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
 	cp.payload = data
 	length := cp.encode(dbf.Data)
 	dbf.Length = int(length)
