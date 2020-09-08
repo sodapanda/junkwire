@@ -196,6 +196,11 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 			break
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
+		if cp.srcIP != cc.dstIP {
+			fmt.Println("read packet not from server.drop")
+			cc.tun.Recycle(dataBuffer)
+			continue
+		}
 		cc.lastRcvSeq = cp.seqNum
 		cc.lastRcvAck = cp.ackNum
 		cc.lastRcvLen = uint32(len(cp.payload))
@@ -255,7 +260,15 @@ func (cc *ClientConn) q2Tun(stopChan chan string) {
 			fmt.Println("q2tun read end")
 			break
 		}
-		cc.tun.Write(dbf.Data[:dbf.Length])
+		data := dbf.Data[:dbf.Length]
+		cp := ConnPacket{}
+		cp.decode(data)
+		if cp.dstIP != cc.dstIP {
+			fmt.Println("client send not to server.drop")
+			cc.pool.PoolPut(dbf)
+			continue
+		}
+		cc.tun.Write(data)
 		cc.pool.PoolPut(dbf)
 	}
 

@@ -64,12 +64,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
 		cp.payload = nil
 		result := make([]byte, 40)
-		len := cp.encode(result)
-
-		if len > 40 {
-			fmt.Println("send syn ack wrong")
-		}
-
+		cp.encode(result)
 		sc.tun.Write(result)
 		sc.sendID++
 		sc.fsm.OnEvent(ds.Event{Name: "sdsynack"})
@@ -109,10 +104,27 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
 	})
 
-	sc.fsm.AddRule("estb", ds.Event{Name: "rcvsyn"}, "error", func(et ds.Event) {
-		fmt.Println("estb rcvsyn error")
-		sc.reset()
-		sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
+	sc.fsm.AddRule("estb", ds.Event{Name: "rcvsyn"}, "gotSyn", func(et ds.Event) {
+		fmt.Println("estb rcvsyn,new peer!")
+		cp := et.ConnPacket.(ConnPacket)
+		sc.dstIP = cp.srcIP
+		sc.dstPort = cp.srcPort
+
+		cp = ConnPacket{}
+		cp.syn = true
+		cp.ack = true
+		cp.srcIP = sc.srcIP
+		cp.dstIP = sc.dstIP
+		cp.srcPort = sc.srcPort
+		cp.dstPort = sc.dstPort
+		cp.seqNum = sc.lastRcvAck
+		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
+		cp.payload = nil
+		result := make([]byte, 40)
+		cp.encode(result)
+		sc.tun.Write(result)
+		sc.sendID = 0
+		sc.fsm.OnEvent(ds.Event{Name: "sdsynack"})
 	})
 
 	sc.fsm.AddRule("estb", ds.Event{Name: "rcvack"}, "estb", func(et ds.Event) {
@@ -153,6 +165,13 @@ func (sc *ServerConn) readLoop() {
 			return
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
+
+		//不是syn包，并且不是当前peer的ip和port就丢掉
+		if !cp.syn && cp.srcIP != sc.dstIP {
+			fmt.Println("packet not from peer.drop")
+			sc.tun.Recycle(dataBuffer)
+			continue
+		}
 		sc.lastRcvSeq = cp.seqNum
 		sc.lastRcvAck = cp.ackNum
 		sc.lastRcvLen = uint32(len(cp.payload))
@@ -226,7 +245,15 @@ func (sc *ServerConn) Write(data []byte, isKp bool) {
 func (sc *ServerConn) q2Tun() {
 	for {
 		dbf := sc.payloadsFromUpLayer.Get()
-		sc.tun.Write(dbf.Data[:dbf.Length])
+		data := dbf.Data[:dbf.Length]
+		cp := ConnPacket{}
+		cp.decode(data)
+		if cp.dstIP != sc.dstIP {
+			fmt.Println("write not to peer.Drop")
+			sc.pool.PoolPut(dbf)
+			continue
+		}
+		sc.tun.Write(data)
 		sc.pool.PoolPut(dbf)
 	}
 }

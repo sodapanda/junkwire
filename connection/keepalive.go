@@ -34,7 +34,7 @@ func (kp *keeper) start() {
 			kp.send()
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		kp.lock.Lock()
 		lossCount := 0
