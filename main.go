@@ -63,7 +63,7 @@ func client(config *Config) {
 		client.SetClientConn(cc)
 		cc.WaitStop()
 		fmt.Println("client stop restart")
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 }
 

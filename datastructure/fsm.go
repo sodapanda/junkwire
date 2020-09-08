@@ -22,13 +22,13 @@ type trans struct {
 //Fsm 状态机
 type Fsm struct {
 	states  map[string]*State //key是state的name value是state指针
-	current string            //currentEvent
+	Current string            //currentEvent
 }
 
 //NewFsm 创建
 func NewFsm(init string) *Fsm {
 	m := new(Fsm)
-	m.current = init
+	m.Current = init
 	m.states = make(map[string]*State)
 	return m
 }
@@ -45,7 +45,7 @@ func (m *Fsm) AddRule(state string, event Event, toState string, action func(Eve
 
 //OnEvent 事件发生的回调
 func (m *Fsm) OnEvent(event Event) {
-	currentState := m.states[m.current]
+	currentState := m.states[m.Current]
 	nextTrans, ok := currentState.trans[event.Name]
 	if !ok {
 		eventName := event.Name
@@ -56,6 +56,6 @@ func (m *Fsm) OnEvent(event Event) {
 		return
 	}
 	nextStateName := nextTrans.name
-	m.current = nextStateName
+	m.Current = nextStateName
 	nextTrans.action(event)
 }
