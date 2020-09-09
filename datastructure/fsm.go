@@ -1,6 +1,10 @@
 package datastructure
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/sodapanda/junkwire/misc"
+)
 
 //State 状态
 type State struct {
@@ -52,7 +56,7 @@ func (m *Fsm) OnEvent(event Event) {
 		if eventName == "" {
 			eventName = "nil"
 		}
-		fmt.Printf("stata:%s has no event %s\n", currentState.name, eventName)
+		misc.PLog(fmt.Sprintf("stata:%s has no event %s\n", currentState.name, eventName))
 		return
 	}
 	nextStateName := nextTrans.name

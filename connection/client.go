@@ -2,13 +2,13 @@ package connection
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/google/netstack/tcpip"
 	ds "github.com/sodapanda/junkwire/datastructure"
 	"github.com/sodapanda/junkwire/device"
+	"github.com/sodapanda/junkwire/misc"
 )
 
 //ClientConnHandler handler
@@ -59,7 +59,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.fsm = ds.NewFsm("stop")
 
 	cc.fsm.AddRule("stop", ds.Event{Name: "sdsyn"}, "synsd", func(ev ds.Event) {
-		fmt.Println("send syn")
+		misc.PLog("send syn")
 		cp := ConnPacket{}
 		cp.syn = true
 		cp.srcIP = cc.srcIP
@@ -83,7 +83,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	})
 
 	cc.fsm.AddRule("synsd", ds.Event{Name: "synTimeout"}, "stop", func(ev ds.Event) {
-		fmt.Println("timeout")
+		misc.PLog("syn sent wait timeout")
 
 		cc.tun.Interrupt()
 		cc.payloadsFromUpLayer.Interrupt()
@@ -91,7 +91,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	})
 
 	cc.fsm.AddRule("synsd", ds.Event{Name: "rcvsynack"}, "gotsynsck", func(ev ds.Event) {
-		fmt.Println("got syn ack send ack")
+		misc.PLog("got syn+ack,sending ack")
 		cp := ConnPacket{}
 		cp.syn = false
 		cp.srcIP = cc.srcIP
@@ -112,19 +112,19 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	})
 
 	cc.fsm.AddRule("synsd", ds.Event{Name: "rcvrst"}, "error", func(ev ds.Event) {
-		fmt.Println("synsd rcvrst error")
+		misc.PLog("synsd rcvrst,error")
 		cc.reset()
 		cc.fsm.OnEvent(ds.Event{Name: "sdrst"})
 	})
 
 	cc.fsm.AddRule("gotsynsck", ds.Event{Name: "sdack"}, "estb", func(ev ds.Event) {
-		fmt.Println("client estb")
+		misc.PLog("client estb")
 		cc.handler.OnConnect(cc)
 		go cc.kp.start()
 	})
 
 	cc.fsm.AddRule("estb", ds.Event{Name: "rcvsynack"}, "error", func(ev ds.Event) {
-		fmt.Println("estb rcvsynack error")
+		misc.PLog("estb rcvsynack,error")
 		cc.reset()
 		cc.fsm.OnEvent(ds.Event{Name: "sdrst"})
 	})
@@ -137,7 +137,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	})
 
 	cc.fsm.AddRule("estb", ds.Event{Name: "rcvrst"}, "error", func(ev ds.Event) {
-		fmt.Println("estb reset")
+		misc.PLog("estb:recv reset")
 		cc.reset()
 		cc.fsm.OnEvent(ds.Event{Name: "sdrst"})
 	})
@@ -147,7 +147,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cc.payloadsFromUpLayer.Interrupt()
 		cc.handler.OnDisconnect(cc)
 		//todo 清理队列里没消费的
-		fmt.Println("stop state")
+		misc.PLog("stop state")
 	})
 
 	cc.fsm.OnEvent(ds.Event{Name: "sdsyn"})
@@ -169,7 +169,7 @@ func (cc *ClientConn) WaitStop() {
 }
 
 func (cc *ClientConn) reset() {
-	fmt.Println("send reset")
+	misc.PLog("send reset")
 	cp := ConnPacket{}
 	cp.syn = false
 	cp.ack = false
@@ -192,12 +192,12 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 		dataBuffer := cc.tun.Read()
 		cp := ConnPacket{}
 		if dataBuffer == nil || dataBuffer.Length == 0 {
-			fmt.Println("client conn loop exit")
+			misc.PLog("client conn read loop exit")
 			break
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
 		if cp.srcIP != cc.dstIP {
-			fmt.Println("read packet not from server.drop")
+			misc.PLog("read packet not from server.drop")
 			cc.tun.Recycle(dataBuffer)
 			continue
 		}
@@ -257,14 +257,14 @@ func (cc *ClientConn) q2Tun(stopChan chan string) {
 	for {
 		dbf := cc.payloadsFromUpLayer.Get()
 		if dbf == nil {
-			fmt.Println("q2tun read end")
+			misc.PLog("q2tun read end")
 			break
 		}
 		data := dbf.Data[:dbf.Length]
 		cp := ConnPacket{}
 		cp.decode(data)
 		if cp.dstIP != cc.dstIP {
-			fmt.Println("client send not to server.drop")
+			misc.PLog("client send not to server.drop")
 			cc.pool.PoolPut(dbf)
 			continue
 		}

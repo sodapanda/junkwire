@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/sodapanda/junkwire/misc"
 )
 
 type keeper struct {
@@ -45,7 +47,7 @@ func (kp *keeper) start() {
 		}
 		kp.lock.Unlock()
 		if lossCount > 3 {
-			fmt.Println("disconnect! keep alive loss ", lossCount)
+			misc.PLog("disconnect! keep alive loss")
 			kp.callback()
 			break
 		}
@@ -72,7 +74,7 @@ func (kp *keeper) rcv(timeStamp uint64) {
 	if _, ok := kp.kpMap[timeStamp]; ok {
 		kp.kpMap[timeStamp] = rtt
 	} else {
-		fmt.Println("kp map has no key ", timeStamp)
+		misc.PLog(fmt.Sprintf("kp map has no key %d", timeStamp))
 	}
 }
 

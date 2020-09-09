@@ -17,7 +17,8 @@ import (
 )
 
 func main() {
-	fmt.Println("start")
+	misc.Init()
+	misc.PLog("start")
 
 	fConfigPath := flag.String("c", "config.json", "config file path")
 	flag.Parse()
@@ -45,6 +46,7 @@ func client(config *Config) {
 	fmt.Println("continue?")
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
+	fmt.Println("start,please see log")
 
 	client := application.NewAppClient(config.Client.Socket.ListenPort)
 	client.Start()
@@ -62,7 +64,7 @@ func client(config *Config) {
 		cc := connection.NewClientConn(tun, config.Client.Tun.SrcIP, serConf.IP, uint16(srcPort), uint16(serPort))
 		client.SetClientConn(cc)
 		cc.WaitStop()
-		fmt.Println("client stop restart")
+		misc.PLog("client main loop stop restart")
 		time.Sleep(1 * time.Second)
 	}
 }
@@ -73,6 +75,8 @@ func server(config *Config) {
 	fmt.Println("continue?")
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
+	fmt.Println("start,please see log")
+
 	serPort, _ := strconv.Atoi(config.Server.Tun.Port)
 
 	sc := connection.NewServerConn(config.Server.Tun.SrcIP, uint16(serPort), tun)
@@ -80,8 +84,6 @@ func server(config *Config) {
 	sv.Start()
 	reader = bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
-
-	fmt.Println(sc)
 }
 
 //Config config
