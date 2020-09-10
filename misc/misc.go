@@ -19,7 +19,7 @@ var logger *log.Logger
 //Init init
 func Init() {
 	f, err := os.OpenFile("junkwire.log",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println(err.Error())
 	}

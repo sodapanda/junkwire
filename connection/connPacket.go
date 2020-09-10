@@ -19,6 +19,7 @@ type ConnPacket struct {
 	push    bool
 	seqNum  uint32
 	ackNum  uint32
+	window  uint16
 	payload []byte
 }
 
@@ -63,7 +64,7 @@ func (cp *ConnPacket) encode(result []byte) uint16 {
 	if cp.push {
 		tcpHeader.Flags = tcpHeader.Flags | header.TCPFlagPsh
 	}
-	tcpHeader.WindowSize = 65000
+	tcpHeader.WindowSize = 6543
 	tcpHeader.Checksum = 0
 	tcpHeader.UrgentPointer = 0
 
@@ -89,5 +90,6 @@ func (cp *ConnPacket) decode(data []byte) {
 	cp.ackNum = tcpHeader.AckNumber()
 	cp.srcPort = tcpHeader.SourcePort()
 	cp.dstPort = tcpHeader.DestinationPort()
+	cp.window = tcpHeader.WindowSize()
 	cp.payload = data[header.IPv4MinimumSize+header.TCPMinimumSize:] //todo 注意tcp mss的影响
 }

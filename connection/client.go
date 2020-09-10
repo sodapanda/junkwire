@@ -2,6 +2,7 @@ package connection
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
 	"time"
 
@@ -59,7 +60,6 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.fsm = ds.NewFsm("stop")
 
 	cc.fsm.AddRule("stop", ds.Event{Name: "sdsyn"}, "synsd", func(ev ds.Event) {
-		misc.PLog("send syn")
 		cp := ConnPacket{}
 		cp.syn = true
 		cp.srcIP = cc.srcIP
@@ -72,6 +72,8 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.payload = nil
 		cp.rst = false
 		cp.ipID++
+
+		misc.PLog(fmt.Sprintf("send syn to %s:%d \n", cp.dstIP.String(), cp.dstPort))
 
 		result := make([]byte, 40)
 		cp.encode(result)
@@ -196,10 +198,15 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 			break
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
-		if cp.srcIP != cc.dstIP {
+		if cp.srcIP != cc.dstIP || cp.srcPort != cc.dstPort {
 			misc.PLog("read packet not from server.drop")
+			misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
 			cc.tun.Recycle(dataBuffer)
 			continue
+		}
+		if cp.window != 6543 {
+			misc.PLog("read window is not 6543!!Danger")
+			misc.PLog(fmt.Sprintf("    %s:%d win:%d\n", cp.srcIP.String(), cp.srcPort, cp.window))
 		}
 		cc.lastRcvSeq = cp.seqNum
 		cc.lastRcvAck = cp.ackNum

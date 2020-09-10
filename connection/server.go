@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/google/netstack/tcpip"
@@ -59,6 +60,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
+		misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -70,24 +72,41 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		sc.fsm.OnEvent(ds.Event{Name: "sdsynack"})
 	})
 
-	sc.fsm.AddRule("waitsyn", ds.Event{Name: "rcvack"}, "error", func(et ds.Event) {
-		misc.PLog("wait syn while error :got ack")
-		sc.reset()
-		sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
+	sc.fsm.AddRule("waitsyn", ds.Event{Name: "rcvack"}, "waitsyn", func(et ds.Event) {
+		misc.PLog("waitsyn rcvack. Stay")
 	})
 
 	sc.fsm.AddRule("waitsyn", ds.Event{Name: "rcvrst"}, "waitsyn", func(et ds.Event) {
-		misc.PLog("wait syn got rst.Stay")
+		misc.PLog("wait syn got rst. Stay")
 	})
 
 	sc.fsm.AddRule("gotSyn", ds.Event{Name: "sdsynack"}, "synacksd", func(et ds.Event) {
 		misc.PLog("syn ack sent")
 	})
 
-	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvsyn"}, "error", func(et ds.Event) {
-		misc.PLog("synacksd rcvsyn error")
-		sc.reset()
-		sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
+	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvsyn"}, "gotSyn", func(et ds.Event) {
+		misc.PLog("synacksd rcvsyn,new peer!")
+
+		cp := et.ConnPacket.(ConnPacket)
+		sc.dstIP = cp.srcIP
+		sc.dstPort = cp.srcPort
+
+		cp = ConnPacket{}
+		cp.syn = true
+		cp.ack = true
+		cp.srcIP = sc.srcIP
+		cp.dstIP = sc.dstIP
+		cp.srcPort = sc.srcPort
+		misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
+		cp.dstPort = sc.dstPort
+		cp.seqNum = sc.lastRcvAck
+		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
+		cp.payload = nil
+		result := make([]byte, 40)
+		cp.encode(result)
+		sc.tun.Write(result)
+		sc.sendID = 0
+		sc.fsm.OnEvent(ds.Event{Name: "sdsynack"})
 	})
 
 	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvack"}, "estb", func(et ds.Event) {
@@ -98,10 +117,8 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		}
 	})
 
-	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvrst"}, "error", func(et ds.Event) {
-		misc.PLog("synacksd rcvrst error")
-		sc.reset()
-		sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
+	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvrst"}, "waitsyn", func(et ds.Event) {
+		misc.PLog("synacksd rcvrst,to waitsyn")
 	})
 
 	sc.fsm.AddRule("estb", ds.Event{Name: "rcvsyn"}, "gotSyn", func(et ds.Event) {
@@ -116,6 +133,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
+		misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -134,10 +152,8 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		}
 	})
 
-	sc.fsm.AddRule("estb", ds.Event{Name: "rcvrst"}, "error", func(et ds.Event) {
-		misc.PLog("estb rcvrst error")
-		sc.reset()
-		sc.fsm.OnEvent(ds.Event{Name: "sdrst"})
+	sc.fsm.AddRule("estb", ds.Event{Name: "rcvrst"}, "waitsyn", func(et ds.Event) {
+		misc.PLog("estb rcvrst,to waitsyn")
 	})
 
 	sc.fsm.AddRule("error", ds.Event{Name: "sdrst"}, "waitsyn", func(et ds.Event) {
@@ -169,8 +185,14 @@ func (sc *ServerConn) readLoop() {
 		//不是syn包，并且不是当前peer的ip和port就丢掉
 		if !cp.syn && cp.srcIP != sc.dstIP {
 			misc.PLog("packet not from peer.drop")
+			misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
 			sc.tun.Recycle(dataBuffer)
 			continue
+		}
+
+		if cp.window != 6543 {
+			misc.PLog("read window is not 6543!!Danger")
+			misc.PLog(fmt.Sprintf("    %s:%d win:%d\n", cp.srcIP.String(), cp.srcPort, cp.window))
 		}
 		sc.lastRcvSeq = cp.seqNum
 		sc.lastRcvAck = cp.ackNum
