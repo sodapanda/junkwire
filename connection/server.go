@@ -60,7 +60,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
-		misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
+		misc.PLog(fmt.Sprintf("    %s:%d\n", sc.dstIP.String(), sc.dstPort))
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -97,7 +97,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
-		misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
+		misc.PLog(fmt.Sprintf("    %s:%d\n", sc.dstIP.String(), sc.dstPort)) //上面被换过
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -133,7 +133,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
-		misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
+		misc.PLog(fmt.Sprintf("    %s:%d\n", sc.dstIP.String(), sc.dstPort))
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
