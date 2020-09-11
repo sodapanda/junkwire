@@ -21,9 +21,9 @@
         }
     },
     "fec": {
-        "enable": true,
+        "enable": false,
         "seg": 20,
         "parity": 10,
-        "duration":15 
+        "duration": 20
     }
 }

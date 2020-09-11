@@ -53,7 +53,7 @@ func client(config *Config) {
 	if config.Fec.Enable {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, 100)
-		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec)
+		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
 	} else {
 		client = application.NewAppClient(config.Client.Socket.ListenPort)
 	}
@@ -93,7 +93,7 @@ func server(config *Config) {
 	if config.Fec.Enable {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, 100)
-		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec)
+		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
 	} else {
 		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
 	}

@@ -1,7 +1,9 @@
 package application
 
 import (
+	"math"
 	"net"
+	"time"
 
 	"github.com/sodapanda/junkwire/codec"
 	"github.com/sodapanda/junkwire/connection"
@@ -15,15 +17,16 @@ type AppClientFec struct {
 	connAddr     *net.UDPAddr
 	clientConn   *connection.ClientConn
 	rcv          int
-	seg          int
-	parity       int
+	seg          int //数据组个数
+	parity       int //纠错组个数
+	duration     int //交织时间段
 	codec        *codec.FecCodec
 	encodePool   *datastructure.DataBufferPool
 	decodeResult []*datastructure.DataBuffer
 }
 
 //NewAppClientFec new
-func NewAppClientFec(listenPort string, seg int, parity int, codec *codec.FecCodec) *AppClientFec {
+func NewAppClientFec(listenPort string, seg int, parity int, codec *codec.FecCodec, duration int) *AppClientFec {
 	ac := new(AppClientFec)
 	addr, err := net.ResolveUDPAddr("udp4", ":"+listenPort)
 	misc.CheckErr(err)
@@ -32,6 +35,7 @@ func NewAppClientFec(listenPort string, seg int, parity int, codec *codec.FecCod
 	ac.conn = conn
 	ac.seg = seg
 	ac.parity = parity
+	ac.duration = duration
 	ac.codec = codec
 	ac.encodePool = datastructure.NewDataBufferPool()
 	ac.decodeResult = make([]*datastructure.DataBuffer, seg)
@@ -51,6 +55,9 @@ func (ac *AppClientFec) socketToDevice() {
 	buffer := make([]byte, 2000)
 	sb := codec.NewStageBuffer(ac.seg)
 	fullDataBuffer := make([]byte, 2000*ac.seg)
+	gapF := float64(ac.duration) / float64(ac.seg+ac.parity)
+	gap := int(math.Ceil(gapF))
+
 	for {
 		length, addr, err := ac.conn.ReadFromUDP(buffer)
 		misc.CheckErr(err)
@@ -64,13 +71,26 @@ func (ac *AppClientFec) socketToDevice() {
 			}
 
 			ac.codec.Encode(resultData, realLength, encodeResult)
+			if ac.duration > 0 {
+				for i, data := range encodeResult {
+					timer := time.NewTimer(time.Duration(gap*i) * time.Millisecond)
 
-			for i := range encodeResult {
-				item := encodeResult[i]
-				if ac.clientConn != nil {
-					ac.clientConn.Write(item.Data[:item.Length], false)
+					go func(packetData *datastructure.DataBuffer) {
+						<-timer.C
+						if ac.clientConn != nil {
+							ac.clientConn.Write(packetData.Data[:packetData.Length], false)
+						}
+						ac.encodePool.PoolPut(packetData)
+					}(data)
 				}
-				ac.encodePool.PoolPut(item)
+			} else {
+				for i := range encodeResult {
+					item := encodeResult[i]
+					if ac.clientConn != nil {
+						ac.clientConn.Write(item.Data[:item.Length], false)
+					}
+					ac.encodePool.PoolPut(item)
+				}
 			}
 		})
 	}

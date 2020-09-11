@@ -2,7 +2,9 @@ package application
 
 import (
 	"fmt"
+	"math"
 	"net"
+	"time"
 
 	"github.com/sodapanda/junkwire/codec"
 	"github.com/sodapanda/junkwire/connection"
@@ -16,13 +18,14 @@ type AppServerFec struct {
 	serverConn   *connection.ServerConn
 	seg          int
 	parity       int
+	duration     int //交织时间段
 	codec        *codec.FecCodec
 	encodePool   *datastructure.DataBufferPool
 	decodeResult []*datastructure.DataBuffer
 }
 
 //NewAppServerFec NewAppServerFec
-func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, codec *codec.FecCodec) *AppServerFec {
+func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, codec *codec.FecCodec, duration int) *AppServerFec {
 	as := new(AppServerFec)
 	address, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%s", dstIP, dstPort))
 	misc.CheckErr(err)
@@ -32,6 +35,7 @@ func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.Server
 	as.serverConn = serverConn
 	as.seg = seg
 	as.parity = parity
+	as.duration = duration
 	as.encodePool = datastructure.NewDataBufferPool()
 	as.decodeResult = make([]*datastructure.DataBuffer, seg)
 	as.codec = codec
@@ -52,6 +56,8 @@ func (as *AppServerFec) socketToDevice() {
 	readBuf := make([]byte, 2000)
 	sb := codec.NewStageBuffer(as.seg)
 	fullDataBuffer := make([]byte, 2000*as.seg)
+	gapF := float64(as.duration) / float64(as.seg+as.parity)
+	gap := int(math.Ceil(gapF))
 
 	for {
 		length, err := as.conn.Read(readBuf)
@@ -64,10 +70,25 @@ func (as *AppServerFec) socketToDevice() {
 			}
 
 			as.codec.Encode(resultData, realLength, encodeResult)
-			for i := range encodeResult {
-				item := encodeResult[i]
-				as.serverConn.Write(item.Data[:item.Length], false)
-				as.encodePool.PoolPut(item)
+
+			if as.duration > 0 {
+				for i, data := range encodeResult {
+					timer := time.NewTimer(time.Duration(gap*i) * time.Millisecond)
+
+					go func(packetData *datastructure.DataBuffer) {
+						<-timer.C
+						if as.serverConn != nil {
+							as.serverConn.Write(packetData.Data[:packetData.Length], false)
+						}
+						as.encodePool.PoolPut(packetData)
+					}(data)
+				}
+			} else {
+				for i := range encodeResult {
+					item := encodeResult[i]
+					as.serverConn.Write(item.Data[:item.Length], false)
+					as.encodePool.PoolPut(item)
+				}
 			}
 		})
 	}
