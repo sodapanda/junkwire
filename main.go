@@ -52,7 +52,7 @@ func client(config *Config) {
 	var client application.IClient
 	if config.Fec.Enable {
 		misc.PLog("fec enable")
-		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, 100)
+		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
 		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
 	} else {
 		client = application.NewAppClient(config.Client.Socket.ListenPort)
@@ -92,7 +92,7 @@ func server(config *Config) {
 	var sv application.IServer
 	if config.Fec.Enable {
 		misc.PLog("fec enable")
-		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, 100)
+		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
 		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
 	} else {
 		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
@@ -135,5 +135,6 @@ type Config struct {
 		Seg      int  `json:"seg"`
 		Parity   int  `json:"parity"`
 		Duration int  `json:"duration"`
+		Cap      int  `json:"cap"`
 	} `json:"fec"`
 }

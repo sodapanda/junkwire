@@ -159,7 +159,7 @@ func (codec *FecCodec) Align(length int) int {
 	return int(minBucket) * codec.segCount
 }
 
-func (codec *FecCodec) dump() {
+func (codec *FecCodec) Dump() {
 	inCompCount := 0
 	for e := codec.keyList.Front(); e != nil; e = e.Next() {
 		gotCount := 0
