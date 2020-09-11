@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-type ftPacket struct {
+type FtPacket struct {
 	gID        uint64 //整个fec组的id
 	index      uint16 //该包在组中的位置
 	realLength uint16 //去掉补齐部分的真实长度
@@ -13,7 +13,7 @@ type ftPacket struct {
 	len        int //在pool里的时候记录长度用
 }
 
-func (ftp *ftPacket) encode(result []byte) int {
+func (ftp *FtPacket) Encode(result []byte) int {
 	binary.BigEndian.PutUint64(result, ftp.gID)
 	binary.BigEndian.PutUint16(result[8:], ftp.index)
 	binary.BigEndian.PutUint16(result[10:], ftp.realLength)
@@ -21,7 +21,7 @@ func (ftp *ftPacket) encode(result []byte) int {
 	return 12 + len(ftp.data)
 }
 
-func (ftp *ftPacket) decode(data []byte) {
+func (ftp *FtPacket) Decode(data []byte) {
 	ftp.gID = binary.BigEndian.Uint64(data[0:])
 	ftp.index = binary.BigEndian.Uint16(data[8:])
 	ftp.realLength = binary.BigEndian.Uint16(data[10:])
@@ -40,7 +40,7 @@ func newFtPool() *ftPool {
 	ftpool := new(ftPool)
 	ftpool.dataPool = sync.Pool{
 		New: func() interface{} {
-			data := new(ftPacket)
+			data := new(FtPacket)
 			data.data = make([]byte, 2000)
 			return data
 		},
@@ -48,11 +48,11 @@ func newFtPool() *ftPool {
 	return ftpool
 }
 
-func (p *ftPool) poolGet() *ftPacket {
+func (p *ftPool) poolGet() *FtPacket {
 	item := p.dataPool.Get()
-	return item.(*ftPacket)
+	return item.(*FtPacket)
 }
 
-func (p *ftPool) poolPut(item *ftPacket) {
+func (p *ftPool) poolPut(item *FtPacket) {
 	p.dataPool.Put(item)
 }

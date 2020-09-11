@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sodapanda/junkwire/application"
+	"github.com/sodapanda/junkwire/codec"
 	"github.com/sodapanda/junkwire/connection"
 	"github.com/sodapanda/junkwire/device"
 	"github.com/sodapanda/junkwire/misc"
@@ -50,7 +51,9 @@ func client(config *Config) {
 
 	var client application.IClient
 	if config.Fec.Enable {
-		client = application.NewAppClientFec(config.Client.Socket.ListenPort)
+		misc.PLog("fec enable")
+		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, 100)
+		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec)
 	} else {
 		client = application.NewAppClient(config.Client.Socket.ListenPort)
 	}
@@ -88,7 +91,9 @@ func server(config *Config) {
 
 	var sv application.IServer
 	if config.Fec.Enable {
-		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
+		misc.PLog("fec enable")
+		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, 100)
+		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec)
 	} else {
 		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
 	}

@@ -14,7 +14,7 @@ type FecCodec struct {
 	segCount            int
 	fecSegCount         int
 	encodeWorkspace     [][]byte
-	decodeLinkMap       map[uint64][]*ftPacket
+	decodeLinkMap       map[uint64][]*FtPacket
 	keyList             *list.List
 	decodeMapCapacity   int
 	decodeTempWorkspace [][]byte
@@ -29,7 +29,7 @@ func NewFecCodec(segCount int, fecSegCount int, decodeMapCap int) *FecCodec {
 	codec.segCount = segCount
 	codec.fecSegCount = fecSegCount
 	codec.encodeWorkspace = make([][]byte, segCount+fecSegCount)
-	codec.decodeLinkMap = make(map[uint64][]*ftPacket)
+	codec.decodeLinkMap = make(map[uint64][]*FtPacket)
 	codec.keyList = list.New()
 	codec.decodeMapCapacity = decodeMapCap
 	codec.decodeTempWorkspace = make([][]byte, segCount+fecSegCount)
@@ -61,20 +61,20 @@ func (codec *FecCodec) Encode(data []byte, realLength int, result []*datastructu
 	codec.currentID = codec.currentID + 1
 
 	for i, data := range codec.encodeWorkspace {
-		ftp := new(ftPacket)
+		ftp := new(FtPacket)
 		ftp.gID = codec.currentID
 		ftp.index = uint16(i)
 		ftp.realLength = uint16(realLength)
 		ftp.data = data
-		codeLen := ftp.encode(result[i].Data)
+		codeLen := ftp.Encode(result[i].Data)
 		result[i].Length = codeLen //指示有效长度
 	}
 }
 
-func (codec *FecCodec) Decode(ftp *ftPacket, result []*datastructure.DataBuffer) bool {
+func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer) bool {
 	_, found := codec.decodeLinkMap[ftp.gID]
 	if !found {
-		codec.decodeLinkMap[ftp.gID] = make([]*ftPacket, codec.segCount+codec.fecSegCount)
+		codec.decodeLinkMap[ftp.gID] = make([]*FtPacket, codec.segCount+codec.fecSegCount)
 		codec.keyList.PushBack(ftp.gID)
 	}
 

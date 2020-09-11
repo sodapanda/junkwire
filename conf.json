@@ -19,5 +19,11 @@
         "socket": {
             "listenPort": "21007"
         }
+    },
+    "fec": {
+        "enable": true,
+        "seg": 20,
+        "parity": 10,
+        "duration": 20
     }
 }
