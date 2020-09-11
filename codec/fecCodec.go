@@ -1,0 +1,183 @@
+package codec
+
+import (
+	"container/list"
+	"encoding/binary"
+	"fmt"
+	"math"
+
+	"github.com/klauspost/reedsolomon"
+	"github.com/sodapanda/junkwire/datastructure"
+)
+
+type FecCodec struct {
+	segCount            int
+	fecSegCount         int
+	encodeWorkspace     [][]byte
+	decodeLinkMap       map[uint64][]*ftPacket
+	keyList             *list.List
+	decodeMapCapacity   int
+	decodeTempWorkspace [][]byte
+	encoder             reedsolomon.Encoder
+	tmpPool             [][]byte //因为每次fec桶大小不一样
+	currentID           uint64
+	fullPacketHolder    []byte //分包合并然后拆分用的内存空间
+}
+
+func NewFecCodec(segCount int, fecSegCount int, decodeMapCap int) *FecCodec {
+	codec := new(FecCodec)
+	codec.segCount = segCount
+	codec.fecSegCount = fecSegCount
+	codec.encodeWorkspace = make([][]byte, segCount+fecSegCount)
+	codec.decodeLinkMap = make(map[uint64][]*ftPacket)
+	codec.keyList = list.New()
+	codec.decodeMapCapacity = decodeMapCap
+	codec.decodeTempWorkspace = make([][]byte, segCount+fecSegCount)
+	codec.encoder, _ = reedsolomon.New(segCount, fecSegCount)
+	codec.tmpPool = make([][]byte, fecSegCount)
+	for i := range codec.tmpPool {
+		codec.tmpPool[i] = make([]byte, 2000)
+	}
+
+	codec.fullPacketHolder = make([]byte, 2000*segCount)
+
+	return codec
+}
+
+func (codec *FecCodec) Encode(data []byte, realLength int, result []*datastructure.DataBuffer) {
+	segSize := (len(data)) / codec.segCount
+	for i := 0; i < codec.segCount; i++ {
+		start := i * segSize
+		end := start + segSize
+		codec.encodeWorkspace[i] = data[start:end]
+	}
+
+	for i := 0; i < codec.fecSegCount; i++ {
+		codec.encodeWorkspace[codec.segCount+i] = codec.tmpPool[i][:segSize]
+	}
+
+	codec.encoder.Encode(codec.encodeWorkspace)
+
+	codec.currentID = codec.currentID + 1
+
+	for i, data := range codec.encodeWorkspace {
+		ftp := new(ftPacket)
+		ftp.gID = codec.currentID
+		ftp.index = uint16(i)
+		ftp.realLength = uint16(realLength)
+		ftp.data = data
+		codeLen := ftp.encode(result[i].Data)
+		result[i].Length = codeLen //指示有效长度
+	}
+}
+
+func (codec *FecCodec) Decode(ftp *ftPacket, result []*datastructure.DataBuffer) bool {
+	_, found := codec.decodeLinkMap[ftp.gID]
+	if !found {
+		codec.decodeLinkMap[ftp.gID] = make([]*ftPacket, codec.segCount+codec.fecSegCount)
+		codec.keyList.PushBack(ftp.gID)
+	}
+
+	if len(codec.decodeLinkMap) >= codec.decodeMapCapacity {
+		firstKeyElm := codec.keyList.Front()
+		firstKey := firstKeyElm.Value.(uint64)
+		ftps := codec.decodeLinkMap[firstKey]
+		for _, ftp := range ftps {
+			if ftp != nil {
+				mFtPool.poolPut(ftp)
+			}
+		}
+		delete(codec.decodeLinkMap, firstKey)
+		codec.keyList.Remove(firstKeyElm)
+	}
+
+	poolFtp := mFtPool.poolGet()
+	if poolFtp == nil {
+		fmt.Println("poolFtp is nil!!")
+	}
+	poolFtp.len = len(ftp.data)
+	poolFtp.gID = ftp.gID
+	poolFtp.index = ftp.index
+	poolFtp.realLength = ftp.realLength
+	copy(poolFtp.data, ftp.data)
+
+	row := codec.decodeLinkMap[ftp.gID]
+	if row[ftp.index] != nil {
+		fmt.Println("Dup!", ftp.gID, ftp.index)
+	}
+	row[ftp.index] = poolFtp
+
+	gotCount := 0
+	for _, v := range row {
+		if v != nil {
+			gotCount++
+		}
+	}
+
+	if gotCount != codec.segCount {
+		return false
+	}
+
+	for i := range codec.decodeTempWorkspace {
+		codec.decodeTempWorkspace[i] = nil
+	}
+
+	for i := range row {
+		thisFtp := row[i]
+		if thisFtp != nil {
+			codec.decodeTempWorkspace[i] = thisFtp.data[:thisFtp.len]
+		}
+	}
+
+	codec.encoder.Reconstruct(codec.decodeTempWorkspace)
+	fCursor := 0
+	for _, data := range codec.decodeTempWorkspace {
+		copy(codec.fullPacketHolder[fCursor:], data)
+		fCursor = fCursor + len(data)
+	}
+
+	fullData := codec.fullPacketHolder[:ftp.realLength]
+
+	sCursor := 0
+	//如果是超时过来的话，只有一个包
+	for i := 0; i < codec.segCount; i++ {
+		if sCursor >= len(fullData) {
+			break
+		}
+		length := binary.BigEndian.Uint16(fullData[sCursor:])
+		sCursor = sCursor + 2
+		copy(result[i].Data, fullData[sCursor:sCursor+int(length)])
+		sCursor = sCursor + int(length)
+		result[i].Length = int(length)
+	}
+
+	return true
+}
+
+func (codec *FecCodec) Align(length int) int {
+	minBucket := math.Ceil(float64(length) / float64(codec.segCount))
+	return int(minBucket) * codec.segCount
+}
+
+func (codec *FecCodec) dump() {
+	inCompCount := 0
+	for e := codec.keyList.Front(); e != nil; e = e.Next() {
+		gotCount := 0
+		fKey := e.Value.(uint64)
+		ftPkts := codec.decodeLinkMap[fKey]
+		fmt.Print(fKey)
+		for _, pkt := range ftPkts {
+			if pkt == nil {
+				fmt.Print("❌")
+			} else {
+				fmt.Print("✅")
+				gotCount++
+			}
+		}
+		if gotCount < codec.segCount {
+			inCompCount++
+		}
+		fmt.Print("\n")
+	}
+	fmt.Println("not complete row ", inCompCount)
+}

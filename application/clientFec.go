@@ -7,17 +7,17 @@ import (
 	"github.com/sodapanda/junkwire/misc"
 )
 
-//AppClient client
-type AppClient struct {
+//AppClientFec client with fec
+type AppClientFec struct {
 	conn       *net.UDPConn
 	connAddr   *net.UDPAddr
 	clientConn *connection.ClientConn
 	rcv        int
 }
 
-//NewAppClient new client
-func NewAppClient(listenPort string) *AppClient {
-	ac := new(AppClient)
+//NewAppClientFec new
+func NewAppClientFec(listenPort string) *AppClientFec {
+	ac := new(AppClientFec)
 	addr, err := net.ResolveUDPAddr("udp4", ":"+listenPort)
 	misc.CheckErr(err)
 	conn, err := net.ListenUDP("udp4", addr)
@@ -27,19 +27,11 @@ func NewAppClient(listenPort string) *AppClient {
 }
 
 //Start start
-func (ac *AppClient) Start() {
+func (ac *AppClientFec) Start() {
 	go ac.socketToDevice()
 }
 
-//SetClientConn set conn
-func (ac *AppClient) SetClientConn(clientConn *connection.ClientConn) {
-	ac.clientConn = clientConn
-	if clientConn != nil {
-		ac.clientConn.AddHandler(clientHandler{ac: ac})
-	}
-}
-
-func (ac *AppClient) socketToDevice() {
+func (ac *AppClientFec) socketToDevice() {
 	buffer := make([]byte, 2000)
 	for {
 		length, addr, err := ac.conn.ReadFromUDP(buffer)
@@ -52,20 +44,22 @@ func (ac *AppClient) socketToDevice() {
 	}
 }
 
-type clientHandler struct {
-	ac *AppClient
+//SetClientConn set client connection
+func (ac *AppClientFec) SetClientConn(clientConn *connection.ClientConn) {
+	ac.clientConn = clientConn
+	if clientConn != nil {
+		ac.clientConn.AddHandler(clientFecHandler{ac: ac})
+	}
 }
 
-func (ch clientHandler) OnData(data []byte) {
+type clientFecHandler struct {
+	ac *AppClientFec
+}
+
+func (ch clientFecHandler) OnData(data []byte) {
 	ch.ac.rcv++
 	_, err := ch.ac.conn.WriteToUDP(data, ch.ac.connAddr)
 	misc.CheckErr(err)
 }
-func (ch clientHandler) OnDisconnect(cc *connection.ClientConn) {}
-func (ch clientHandler) OnConnect(cc *connection.ClientConn)    {}
-
-//IClient client
-type IClient interface {
-	Start()
-	SetClientConn(clientConn *connection.ClientConn)
-}
+func (ch clientFecHandler) OnDisconnect(cc *connection.ClientConn) {}
+func (ch clientFecHandler) OnConnect(cc *connection.ClientConn)    {}

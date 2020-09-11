@@ -8,15 +8,15 @@ import (
 	"github.com/sodapanda/junkwire/misc"
 )
 
-//AppServer server
-type AppServer struct {
+//AppServerFec AppServerFec
+type AppServerFec struct {
 	conn       *net.UDPConn
 	serverConn *connection.ServerConn
 }
 
-//NewAppServer new server
-func NewAppServer(dstIP string, dstPort string, serverConn *connection.ServerConn) *AppServer {
-	as := new(AppServer)
+//NewAppServerFec NewAppServerFec
+func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn) *AppServerFec {
+	as := new(AppServerFec)
 	address, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%s", dstIP, dstPort))
 	misc.CheckErr(err)
 	conn, err := net.DialUDP("udp4", nil, address)
@@ -27,12 +27,12 @@ func NewAppServer(dstIP string, dstPort string, serverConn *connection.ServerCon
 }
 
 //Start start
-func (as *AppServer) Start() {
+func (as *AppServerFec) Start() {
 	go as.socketToDevice()
-	as.serverConn.AddHandler(handler{ser: as})
+	as.serverConn.AddHandler(handlerFec{ser: as})
 }
 
-func (as *AppServer) socketToDevice() {
+func (as *AppServerFec) socketToDevice() {
 	readBuf := make([]byte, 2000)
 
 	for {
@@ -43,19 +43,14 @@ func (as *AppServer) socketToDevice() {
 	}
 }
 
-type handler struct {
-	ser *AppServer
+type handlerFec struct {
+	ser *AppServerFec
 }
 
-func (h handler) OnData(data []byte, conn *connection.ServerConn) {
+func (h handlerFec) OnData(data []byte, conn *connection.ServerConn) {
 	h.ser.conn.Write(data)
 }
 
-func (h handler) OnDisconnect() {
+func (h handlerFec) OnDisconnect() {
 
-}
-
-//IServer server interface
-type IServer interface {
-	Start()
 }

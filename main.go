@@ -48,7 +48,12 @@ func client(config *Config) {
 	reader.ReadString('\n')
 	fmt.Println("start,please see log")
 
-	client := application.NewAppClient(config.Client.Socket.ListenPort)
+	var client application.IClient
+	if config.Fec.Enable {
+		client = application.NewAppClientFec(config.Client.Socket.ListenPort)
+	} else {
+		client = application.NewAppClient(config.Client.Socket.ListenPort)
+	}
 	client.Start()
 	srcPort, _ := strconv.Atoi(config.Client.Tun.Port)
 
@@ -80,7 +85,13 @@ func server(config *Config) {
 	serPort, _ := strconv.Atoi(config.Server.Tun.Port)
 
 	sc := connection.NewServerConn(config.Server.Tun.SrcIP, uint16(serPort), tun)
-	sv := application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
+
+	var sv application.IServer
+	if config.Fec.Enable {
+		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
+	} else {
+		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
+	}
 	sv.Start()
 	reader = bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
@@ -114,4 +125,10 @@ type Config struct {
 			ListenPort string `json:"listenPort"`
 		} `json:"socket"`
 	} `json:"client"`
+	Fec struct {
+		Enable   bool `json:"enable"`
+		Seg      int  `json:"seg"`
+		Parity   int  `json:"parity"`
+		Duration int  `json:"duration"`
+	} `json:"fec"`
 }
