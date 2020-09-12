@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -83,10 +84,8 @@ func client(config *Config) {
 		serPort, _ := strconv.Atoi(serConf.Port)
 
 		//防止一只重复使用一个src port 可能对nat有好处
-		srcPort = srcPort + 1
-		if srcPort > 60000 {
-			srcPort = 8889
-		}
+		rdm := rand.Intn(10000)
+		srcPort = srcPort + rdm
 
 		cc := connection.NewClientConn(tun, config.Client.Tun.SrcIP, serConf.IP, uint16(srcPort), uint16(serPort))
 		client.SetClientConn(cc)

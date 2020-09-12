@@ -60,7 +60,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
-		misc.PLog(fmt.Sprintf("    %s:%d\n", sc.dstIP.String(), sc.dstPort))
+		misc.PLog(fmt.Sprintf("    %s:%d", sc.dstIP.String(), sc.dstPort))
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -85,7 +85,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 	})
 
 	sc.fsm.AddRule("synacksd", ds.Event{Name: "rcvsyn"}, "gotSyn", func(et ds.Event) {
-		misc.PLog("synacksd rcvsyn,new peer!")
+		misc.PLog("\nsynacksd rcvsyn,new peer!")
 
 		cp := et.ConnPacket.(ConnPacket)
 		sc.dstIP = cp.srcIP
@@ -97,7 +97,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
-		misc.PLog(fmt.Sprintf("    %s:%d\n", sc.dstIP.String(), sc.dstPort)) //上面被换过
+		misc.PLog(fmt.Sprintf("    %s:%d", sc.dstIP.String(), sc.dstPort)) //上面被换过
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -122,7 +122,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 	})
 
 	sc.fsm.AddRule("estb", ds.Event{Name: "rcvsyn"}, "gotSyn", func(et ds.Event) {
-		misc.PLog("estb rcvsyn,new peer!")
+		misc.PLog("\nestb rcvsyn,new peer!")
 		cp := et.ConnPacket.(ConnPacket)
 		sc.dstIP = cp.srcIP
 		sc.dstPort = cp.srcPort
@@ -133,7 +133,7 @@ func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *Serv
 		cp.srcIP = sc.srcIP
 		cp.dstIP = sc.dstIP
 		cp.srcPort = sc.srcPort
-		misc.PLog(fmt.Sprintf("    %s:%d\n", sc.dstIP.String(), sc.dstPort))
+		misc.PLog(fmt.Sprintf("    %s:%d", sc.dstIP.String(), sc.dstPort))
 		cp.dstPort = sc.dstPort
 		cp.seqNum = sc.lastRcvAck
 		cp.ackNum = sc.lastRcvSeq + sc.lastRcvLen
@@ -185,7 +185,7 @@ func (sc *ServerConn) readLoop() {
 		//不是syn包，并且不是当前peer的ip和port就丢掉
 		if !cp.syn && cp.srcIP != sc.dstIP {
 			misc.PLog("packet not from peer.drop")
-			misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
+			misc.PLog(fmt.Sprintf("    %s:%d", cp.srcIP.String(), cp.srcPort))
 			sc.tun.Recycle(dataBuffer)
 			continue
 		}

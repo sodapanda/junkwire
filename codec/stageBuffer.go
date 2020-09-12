@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+//StageBuffer buffer
 type StageBuffer struct {
 	buffer   []byte
 	capacity int
@@ -16,6 +17,7 @@ type StageBuffer struct {
 	waitTime time.Duration
 }
 
+//NewStageBuffer new
 func NewStageBuffer(cap int) *StageBuffer {
 	sbuffer := new(StageBuffer)
 	sbuffer.capacity = cap
@@ -26,6 +28,7 @@ func NewStageBuffer(cap int) *StageBuffer {
 	return sbuffer
 }
 
+//Append append
 func (sb *StageBuffer) Append(data []byte, length uint16, resultBuffer []byte, codec *FecCodec, callback func(*StageBuffer, []byte, int)) {
 	sb.lock.Lock()
 	defer sb.lock.Unlock()

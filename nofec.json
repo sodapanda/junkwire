@@ -3,7 +3,7 @@
     "client": {
         "tun": {
             "deviceIP": "10.1.1.1",
-            "port": "8888",
+            "port": "8978",
             "srcIP": "10.1.1.2",
             "peers": [
                 {

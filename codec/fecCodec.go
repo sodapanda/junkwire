@@ -11,6 +11,7 @@ import (
 	"github.com/sodapanda/junkwire/datastructure"
 )
 
+//FecCodec fec
 type FecCodec struct {
 	segCount            int
 	fecSegCount         int
@@ -25,6 +26,7 @@ type FecCodec struct {
 	fullPacketHolder    []byte //分包合并然后拆分用的内存空间
 }
 
+//NewFecCodec new
 func NewFecCodec(segCount int, fecSegCount int, decodeMapCap int) *FecCodec {
 	codec := new(FecCodec)
 	codec.segCount = segCount
@@ -45,6 +47,7 @@ func NewFecCodec(segCount int, fecSegCount int, decodeMapCap int) *FecCodec {
 	return codec
 }
 
+//Encode encode
 func (codec *FecCodec) Encode(data []byte, realLength int, result []*datastructure.DataBuffer) {
 	segSize := (len(data)) / codec.segCount
 	for i := 0; i < codec.segCount; i++ {
@@ -72,6 +75,7 @@ func (codec *FecCodec) Encode(data []byte, realLength int, result []*datastructu
 	}
 }
 
+//Decode decode
 func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer) bool {
 	_, found := codec.decodeLinkMap[ftp.gID]
 	if !found {
@@ -79,7 +83,7 @@ func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer)
 		codec.keyList.PushBack(ftp.gID)
 	}
 
-	if len(codec.decodeLinkMap) >= codec.decodeMapCapacity {
+	if len(codec.decodeLinkMap) > codec.decodeMapCapacity {
 		firstKeyElm := codec.keyList.Front()
 		firstKey := firstKeyElm.Value.(uint64)
 		ftps := codec.decodeLinkMap[firstKey]
@@ -155,11 +159,13 @@ func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer)
 	return true
 }
 
+//Align align
 func (codec *FecCodec) Align(length int) int {
 	minBucket := math.Ceil(float64(length) / float64(codec.segCount))
 	return int(minBucket) * codec.segCount
 }
 
+//Dump dump
 func (codec *FecCodec) Dump() string {
 	var sb strings.Builder
 	inCompCount := 0

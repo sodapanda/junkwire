@@ -73,7 +73,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.rst = false
 		cp.ipID++
 
-		misc.PLog(fmt.Sprintf("send syn to %s:%d \n", cp.dstIP.String(), cp.dstPort))
+		misc.PLog(fmt.Sprintf("\nsend syn %s:%d => %s:%d", cp.srcIP.String(), cp.srcPort, cp.dstIP.String(), cp.dstPort))
 
 		result := make([]byte, 40)
 		cp.encode(result)
@@ -199,8 +199,8 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 		}
 		cp.decode(dataBuffer.Data[:dataBuffer.Length])
 		if cp.srcIP != cc.dstIP || cp.srcPort != cc.dstPort {
-			misc.PLog("read packet not from server.drop")
-			misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
+			// misc.PLog("read packet not from server.drop")
+			// misc.PLog(fmt.Sprintf("    %s:%d\n", cp.srcIP.String(), cp.srcPort))
 			cc.tun.Recycle(dataBuffer)
 			continue
 		}

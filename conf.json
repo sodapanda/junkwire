@@ -3,7 +3,7 @@
     "client": {
         "tun": {
             "deviceIP": "10.1.1.1",
-            "port": "8888",
+            "port": "9876",
             "srcIP": "10.1.1.2",
             "peers": [
                 {
@@ -22,8 +22,8 @@
     },
     "fec": {
         "enable": true,
-        "seg": 10,
-        "parity": 5,
+        "seg": 20,
+        "parity": 10,
         "duration": 0,
         "cap": 500
     }

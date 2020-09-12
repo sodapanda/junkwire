@@ -24,7 +24,7 @@ func Init() {
 		fmt.Println(err.Error())
 	}
 
-	logger = log.New(f, "junkwire", log.LstdFlags)
+	logger = log.New(f, "", log.LstdFlags)
 }
 
 //PLog print long
