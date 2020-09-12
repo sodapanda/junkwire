@@ -81,6 +81,13 @@ func client(config *Config) {
 		serConf := config.Client.Tun.Peers[connTimes]
 		client.SetClientConn(nil)
 		serPort, _ := strconv.Atoi(serConf.Port)
+
+		//防止一只重复使用一个src port 可能对nat有好处
+		srcPort = srcPort + 1
+		if srcPort > 60000 {
+			srcPort = 8889
+		}
+
 		cc := connection.NewClientConn(tun, config.Client.Tun.SrcIP, serConf.IP, uint16(srcPort), uint16(serPort))
 		client.SetClientConn(cc)
 		cc.WaitStop()

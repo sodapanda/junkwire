@@ -25,6 +25,6 @@
         "seg": 10,
         "parity": 5,
         "duration": 0,
-        "cap": 5000
+        "cap": 500
     }
 }
