@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/klauspost/reedsolomon"
 	"github.com/sodapanda/junkwire/datastructure"
@@ -159,25 +160,27 @@ func (codec *FecCodec) Align(length int) int {
 	return int(minBucket) * codec.segCount
 }
 
-func (codec *FecCodec) Dump() {
+func (codec *FecCodec) Dump() string {
+	var sb strings.Builder
 	inCompCount := 0
 	for e := codec.keyList.Front(); e != nil; e = e.Next() {
 		gotCount := 0
 		fKey := e.Value.(uint64)
 		ftPkts := codec.decodeLinkMap[fKey]
-		fmt.Print(fKey)
+		fmt.Fprintf(&sb, "%d", fKey)
 		for _, pkt := range ftPkts {
 			if pkt == nil {
-				fmt.Print("❌")
+				fmt.Fprintf(&sb, "❌")
 			} else {
-				fmt.Print("✅")
+				fmt.Fprintf(&sb, "✅")
 				gotCount++
 			}
 		}
 		if gotCount < codec.segCount {
 			inCompCount++
 		}
-		fmt.Print("\n")
+		fmt.Fprintf(&sb, "\n")
 	}
-	fmt.Println("not complete row ", inCompCount)
+	fmt.Fprintf(&sb, "not complete row %d", inCompCount)
+	return sb.String()
 }

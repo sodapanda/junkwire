@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -17,7 +18,10 @@ import (
 	"github.com/sodapanda/junkwire/misc"
 )
 
+var mCodec *codec.FecCodec
+
 func main() {
+	go ctlServer()
 	misc.Init()
 	misc.PLog("start")
 
@@ -41,6 +45,13 @@ func main() {
 	}
 }
 
+func ctlServer() {
+	http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, mCodec.Dump())
+	})
+	http.ListenAndServe(":8080", nil)
+}
+
 func client(config *Config) {
 	tun := device.NewTunInterface("faketcp", config.Client.Tun.DeviceIP, 100)
 
@@ -53,6 +64,7 @@ func client(config *Config) {
 	if config.Fec.Enable {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
+		mCodec = codec
 		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
 	} else {
 		client = application.NewAppClient(config.Client.Socket.ListenPort)
@@ -93,6 +105,7 @@ func server(config *Config) {
 	if config.Fec.Enable {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
+		mCodec = codec
 		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
 	} else {
 		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)

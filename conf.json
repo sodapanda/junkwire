@@ -22,9 +22,9 @@
     },
     "fec": {
         "enable": true,
-        "seg": 20,
-        "parity": 10,
-        "duration": 15,
-        "cap": 500
+        "seg": 10,
+        "parity": 5,
+        "duration": 0,
+        "cap": 5000
     }
 }
