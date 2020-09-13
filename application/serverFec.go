@@ -57,6 +57,7 @@ func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.Server
 //Start start
 func (as *AppServerFec) Start() {
 	go as.socketToDevice()
+	go as.il.PushDown()
 	as.serverConn.AddHandler(handlerFec{ser: as})
 }
 

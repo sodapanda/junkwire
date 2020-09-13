@@ -57,6 +57,7 @@ func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCo
 //Start start
 func (ac *AppClientFec) Start() {
 	go ac.socketToDevice()
+	go ac.il.PushDown()
 }
 
 func (ac *AppClientFec) socketToDevice() {
