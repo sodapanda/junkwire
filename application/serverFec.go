@@ -2,7 +2,6 @@ package application
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"time"
 
@@ -22,10 +21,11 @@ type AppServerFec struct {
 	codec        *codec.FecCodec
 	encodePool   *datastructure.DataBufferPool
 	decodeResult []*datastructure.DataBuffer
+	il           *codec.Interlace //交织
 }
 
 //NewAppServerFec NewAppServerFec
-func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, codec *codec.FecCodec, duration int) *AppServerFec {
+func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, icodec *codec.FecCodec, duration int) *AppServerFec {
 	as := new(AppServerFec)
 	address, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%s", dstIP, dstPort))
 	misc.CheckErr(err)
@@ -38,11 +38,19 @@ func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.Server
 	as.duration = duration
 	as.encodePool = datastructure.NewDataBufferPool()
 	as.decodeResult = make([]*datastructure.DataBuffer, seg)
-	as.codec = codec
+	as.codec = icodec
 	for i := range as.decodeResult {
 		as.decodeResult[i] = new(datastructure.DataBuffer)
 		as.decodeResult[i].Data = make([]byte, 2000)
 	}
+
+	as.il = codec.NewInterlace(20, 1*time.Millisecond, func(dbf *datastructure.DataBuffer) {
+		if as.serverConn != nil {
+			as.serverConn.Write(dbf.Data[:dbf.Length], false)
+		}
+		as.encodePool.PoolPut(dbf)
+	})
+
 	return as
 }
 
@@ -56,8 +64,6 @@ func (as *AppServerFec) socketToDevice() {
 	readBuf := make([]byte, 2000)
 	sb := codec.NewStageBuffer(as.seg)
 	fullDataBuffer := make([]byte, 2000*as.seg)
-	gapF := float64(as.duration) / float64(as.seg+as.parity)
-	gap := int(math.Ceil(gapF))
 
 	for {
 		length, err := as.conn.Read(readBuf)
@@ -72,17 +78,7 @@ func (as *AppServerFec) socketToDevice() {
 			as.codec.Encode(resultData, realLength, encodeResult)
 
 			if as.duration > 0 {
-				for i, data := range encodeResult {
-					timer := time.NewTimer(time.Duration(gap*i) * time.Millisecond)
-
-					go func(packetData *datastructure.DataBuffer) {
-						<-timer.C
-						if as.serverConn != nil {
-							as.serverConn.Write(packetData.Data[:packetData.Length], false)
-						}
-						as.encodePool.PoolPut(packetData)
-					}(data)
-				}
+				as.il.Put(encodeResult)
 			} else {
 				for i := range encodeResult {
 					item := encodeResult[i]

@@ -46,7 +46,7 @@ func (kp *keeper) start() {
 			}
 		}
 		kp.lock.Unlock()
-		if lossCount > 2 {
+		if lossCount > 4 {
 			misc.PLog("disconnect! keep alive loss")
 			kp.callback()
 			break

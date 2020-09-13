@@ -6,6 +6,7 @@ import "sync"
 type DataBuffer struct {
 	Data   []byte
 	Length int
+	Tag    string
 }
 
 type DataBufferPool struct {

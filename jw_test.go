@@ -1,18 +1,30 @@
 package main
 
 import (
+	"fmt"
 	"testing"
+	"time"
+
+	"github.com/sodapanda/junkwire/codec"
+	"github.com/sodapanda/junkwire/datastructure"
 )
 
-func TestFsm(t *testing.T) {
-	// fsm := datastructure.NewFsm("closed")
-	// fsm.AddRule("closed", datastructure.Event{Name: "doOpen"}, "open", func(ev datastructure.Event) {
-	// 	fmt.Println("open")
-	// })
-	// fsm.AddRule("open", datastructure.Event{Name: "doClose"}, "closed", func(ev datastructure.Event) {
-	// 	fmt.Println("close")
-	// })
+func TestInterlace(t *testing.T) {
+	il := codec.NewInterlace(5, 1*time.Millisecond, func(dbf *datastructure.DataBuffer) {
+		fmt.Print(dbf.Tag + " ")
+	})
+	go il.PushDown()
 
-	// fsm.OnEvent(datastructure.Event{Name: "doOpen"})
-	// fsm.OnEvent(datastructure.Event{Name: "doClose"})
+	for i := 0; i < 20; i++ {
+		dbfs := make([]*datastructure.DataBuffer, 8)
+		for j := 0; j < 8; j++ {
+			dbf := datastructure.DataBuffer{
+				Tag: fmt.Sprintf("row:%d_col:%d", i, j),
+			}
+			dbfs[j] = &dbf
+		}
+		il.Put(dbfs)
+	}
+
+	time.Sleep(100 * time.Second)
 }
