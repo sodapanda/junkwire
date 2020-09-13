@@ -24,7 +24,8 @@
         "enable": true,
         "seg": 20,
         "parity": 10,
-        "duration": 10,
-        "cap": 500
+        "duration": 40,
+        "cap": 500,
+        "row": 10
     }
 }

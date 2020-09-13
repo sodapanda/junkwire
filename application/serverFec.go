@@ -25,7 +25,7 @@ type AppServerFec struct {
 }
 
 //NewAppServerFec NewAppServerFec
-func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, icodec *codec.FecCodec, duration int) *AppServerFec {
+func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, icodec *codec.FecCodec, duration int, rowCount int) *AppServerFec {
 	as := new(AppServerFec)
 	address, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%s", dstIP, dstPort))
 	misc.CheckErr(err)
@@ -44,7 +44,10 @@ func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.Server
 		as.decodeResult[i].Data = make([]byte, 2000)
 	}
 
-	as.il = codec.NewInterlace(20, 1*time.Millisecond, func(dbf *datastructure.DataBuffer) {
+	inv := time.Duration((float32(duration) / float32(seg+parity)) * 1000)
+	misc.PLog(fmt.Sprintf("interval %d", inv))
+
+	as.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
 		if as.serverConn != nil {
 			as.serverConn.Write(dbf.Data[:dbf.Length], false)
 		}

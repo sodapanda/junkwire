@@ -66,7 +66,7 @@ func client(config *Config) {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
 		mCodec = codec
-		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
+		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration, config.Fec.Row)
 	} else {
 		client = application.NewAppClient(config.Client.Socket.ListenPort)
 	}
@@ -112,7 +112,7 @@ func server(config *Config) {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
 		mCodec = codec
-		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration)
+		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration, config.Fec.Row)
 	} else {
 		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
 	}
@@ -155,5 +155,6 @@ type Config struct {
 		Parity   int  `json:"parity"`
 		Duration int  `json:"duration"`
 		Cap      int  `json:"cap"`
+		Row      int  `json:"row"`
 	} `json:"fec"`
 }

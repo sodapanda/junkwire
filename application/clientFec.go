@@ -1,6 +1,7 @@
 package application
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -26,7 +27,7 @@ type AppClientFec struct {
 }
 
 //NewAppClientFec new
-func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCodec, duration int) *AppClientFec {
+func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCodec, duration int, rowCount int) *AppClientFec {
 	ac := new(AppClientFec)
 	addr, err := net.ResolveUDPAddr("udp4", ":"+listenPort)
 	misc.CheckErr(err)
@@ -44,7 +45,10 @@ func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCo
 		ac.decodeResult[i].Data = make([]byte, 2000)
 	}
 
-	ac.il = codec.NewInterlace(20, 1*time.Millisecond, func(dbf *datastructure.DataBuffer) {
+	inv := time.Duration((float32(duration) / float32(seg+parity)) * 1000)
+	misc.PLog(fmt.Sprintf("interval %d", inv))
+
+	ac.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
 		if ac.clientConn != nil {
 			ac.clientConn.Write(dbf.Data[:dbf.Length], false)
 		}

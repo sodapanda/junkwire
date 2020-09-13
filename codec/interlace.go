@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sodapanda/junkwire/datastructure"
+	"github.com/sodapanda/junkwire/misc"
 )
 
 type row struct {
@@ -82,6 +83,7 @@ func (il *Interlace) PushDown() {
 			}
 			data := row.datas[row.cursor]
 			il.callback(data)
+			misc.PLog(fmt.Sprintf("interlace size %d", il.size))
 			row.cursor = row.cursor + 1
 			if row.cursor == len(row.datas) {
 				row.runOut = true
