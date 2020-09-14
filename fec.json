@@ -22,6 +22,6 @@
         "parity": 10,
         "duration": 0,
         "cap": 500,
-        "row": 10
+        "row": 1000
     }
 }

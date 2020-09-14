@@ -45,15 +45,17 @@ func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCo
 		ac.decodeResult[i].Data = make([]byte, 2000)
 	}
 
-	inv := time.Duration((float32(duration) / float32(seg+parity)) * 1000)
-	misc.PLog(fmt.Sprintf("interval %d", inv))
+	if duration > 0 {
+		inv := time.Duration((float32(duration) / float32(seg+parity)) * 1000)
+		misc.PLog(fmt.Sprintf("interval %d", inv))
 
-	ac.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
-		if ac.clientConn != nil {
-			ac.clientConn.Write(dbf.Data[:dbf.Length], false)
-		}
-		ac.encodePool.PoolPut(dbf)
-	})
+		ac.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
+			if ac.clientConn != nil {
+				ac.clientConn.Write(dbf.Data[:dbf.Length], false)
+			}
+			ac.encodePool.PoolPut(dbf)
+		})
+	}
 
 	return ac
 }
@@ -61,7 +63,9 @@ func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCo
 //Start start
 func (ac *AppClientFec) Start() {
 	go ac.socketToDevice()
-	go ac.il.PushDown()
+	if ac.duration > 0 {
+		go ac.il.PushDown()
+	}
 }
 
 func (ac *AppClientFec) socketToDevice() {

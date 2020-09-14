@@ -44,23 +44,27 @@ func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.Server
 		as.decodeResult[i].Data = make([]byte, 2000)
 	}
 
-	inv := time.Duration((float32(duration) / float32(seg+parity)) * 1000)
-	misc.PLog(fmt.Sprintf("interval %d", inv))
+	if duration > 0 {
+		inv := time.Duration((float32(duration) / float32(seg+parity)) * 1000)
+		misc.PLog(fmt.Sprintf("interval %d", inv))
 
-	as.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
-		if as.serverConn != nil {
-			as.serverConn.Write(dbf.Data[:dbf.Length], false)
-		}
-		as.encodePool.PoolPut(dbf)
-	})
+		as.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
+			if as.serverConn != nil {
+				as.serverConn.Write(dbf.Data[:dbf.Length], false)
+			}
+			as.encodePool.PoolPut(dbf)
+		})
 
+	}
 	return as
 }
 
 //Start start
 func (as *AppServerFec) Start() {
 	go as.socketToDevice()
-	go as.il.PushDown()
+	if as.duration > 0 {
+		go as.il.PushDown()
+	}
 	as.serverConn.AddHandler(handlerFec{ser: as})
 }
 
