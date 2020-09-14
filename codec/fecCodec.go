@@ -42,7 +42,7 @@ func NewFecCodec(segCount int, fecSegCount int, decodeMapCap int) *FecCodec {
 		codec.tmpPool[i] = make([]byte, 2000)
 	}
 
-	codec.fullPacketHolder = make([]byte, 2000*segCount)
+	codec.fullPacketHolder = make([]byte, 2000*(segCount+fecSegCount))
 
 	return codec
 }
