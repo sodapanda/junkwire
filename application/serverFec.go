@@ -18,6 +18,7 @@ type AppServerFec struct {
 	seg          int
 	parity       int
 	duration     int //交织时间段
+	stageTm      int //stagebuffer的超时时间
 	codec        *codec.FecCodec
 	encodePool   *datastructure.DataBufferPool
 	decodeResult []*datastructure.DataBuffer
@@ -25,7 +26,7 @@ type AppServerFec struct {
 }
 
 //NewAppServerFec NewAppServerFec
-func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, icodec *codec.FecCodec, duration int, rowCount int) *AppServerFec {
+func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.ServerConn, seg int, parity int, icodec *codec.FecCodec, duration int, rowCount int, stm int) *AppServerFec {
 	as := new(AppServerFec)
 	address, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("%s:%s", dstIP, dstPort))
 	misc.CheckErr(err)
@@ -36,6 +37,7 @@ func NewAppServerFec(dstIP string, dstPort string, serverConn *connection.Server
 	as.seg = seg
 	as.parity = parity
 	as.duration = duration
+	as.stageTm = stm
 	as.encodePool = datastructure.NewDataBufferPool()
 	as.decodeResult = make([]*datastructure.DataBuffer, seg)
 	as.codec = icodec
@@ -70,31 +72,31 @@ func (as *AppServerFec) Start() {
 
 func (as *AppServerFec) socketToDevice() {
 	readBuf := make([]byte, 2000)
-	sb := codec.NewStageBuffer(as.seg)
 	fullDataBuffer := make([]byte, 2000*as.seg)
+	sb := codec.NewStageBuffer(as.codec, as.seg, fullDataBuffer, time.Duration(as.stageTm)*time.Millisecond, func(sb *codec.StageBuffer, resultData []byte, realLength int) {
+		encodeResult := make([]*datastructure.DataBuffer, as.seg+as.parity)
+		for i := range encodeResult {
+			encodeResult[i] = as.encodePool.PoolGet()
+		}
+
+		as.codec.Encode(resultData, realLength, encodeResult)
+
+		if as.duration > 0 {
+			as.il.Put(encodeResult)
+		} else {
+			for i := range encodeResult {
+				item := encodeResult[i]
+				as.serverConn.Write(item.Data[:item.Length], false)
+				as.encodePool.PoolPut(item)
+			}
+		}
+	})
 
 	for {
 		length, err := as.conn.Read(readBuf)
 		misc.CheckErr(err)
 		data := readBuf[:length]
-		encodeResult := make([]*datastructure.DataBuffer, as.seg+as.parity)
-		sb.Append(data, uint16(length), fullDataBuffer, as.codec, func(cSb *codec.StageBuffer, resultData []byte, realLength int) {
-			for i := range encodeResult {
-				encodeResult[i] = as.encodePool.PoolGet()
-			}
-
-			as.codec.Encode(resultData, realLength, encodeResult)
-
-			if as.duration > 0 {
-				as.il.Put(encodeResult)
-			} else {
-				for i := range encodeResult {
-					item := encodeResult[i]
-					as.serverConn.Write(item.Data[:item.Length], false)
-					as.encodePool.PoolPut(item)
-				}
-			}
-		})
+		sb.Append(data, uint16(length))
 	}
 }
 

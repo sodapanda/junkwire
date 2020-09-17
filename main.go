@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
@@ -47,9 +48,9 @@ func main() {
 }
 
 func ctlServer() {
-	http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, mCodec.Dump())
-	})
+	// http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
+	// 	fmt.Fprintf(w, mCodec.Dump())
+	// })
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -66,7 +67,7 @@ func client(config *Config) {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
 		mCodec = codec
-		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration, config.Fec.Row)
+		client = application.NewAppClientFec(config.Client.Socket.ListenPort, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration, config.Fec.Row, config.Fec.StageTimeout)
 	} else {
 		client = application.NewAppClient(config.Client.Socket.ListenPort)
 	}
@@ -112,7 +113,7 @@ func server(config *Config) {
 		misc.PLog("fec enable")
 		codec := codec.NewFecCodec(config.Fec.Seg, config.Fec.Parity, config.Fec.Cap)
 		mCodec = codec
-		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration, config.Fec.Row)
+		sv = application.NewAppServerFec(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc, config.Fec.Seg, config.Fec.Parity, codec, config.Fec.Duration, config.Fec.Row, config.Fec.StageTimeout)
 	} else {
 		sv = application.NewAppServer(config.Server.Socket.DstIP, config.Server.Socket.DstPort, sc)
 	}
@@ -150,11 +151,12 @@ type Config struct {
 		} `json:"socket"`
 	} `json:"client"`
 	Fec struct {
-		Enable   bool `json:"enable"`
-		Seg      int  `json:"seg"`
-		Parity   int  `json:"parity"`
-		Duration int  `json:"duration"`
-		Cap      int  `json:"cap"`
-		Row      int  `json:"row"`
+		Enable       bool `json:"enable"`
+		Seg          int  `json:"seg"`
+		Parity       int  `json:"parity"`
+		StageTimeout int  `json:"stageTimeout"`
+		Duration     int  `json:"duration"`
+		Cap          int  `json:"cap"`
+		Row          int  `json:"row"`
 	} `json:"fec"`
 }

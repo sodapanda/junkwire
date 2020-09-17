@@ -20,6 +20,7 @@ type AppClientFec struct {
 	seg          int //数据组个数
 	parity       int //纠错组个数
 	duration     int //交织时间段 毫秒
+	stageTm      int //stagebuffer的超时时间
 	codec        *codec.FecCodec
 	encodePool   *datastructure.DataBufferPool
 	decodeResult []*datastructure.DataBuffer
@@ -27,7 +28,7 @@ type AppClientFec struct {
 }
 
 //NewAppClientFec new
-func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCodec, duration int, rowCount int) *AppClientFec {
+func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCodec, duration int, rowCount int, stm int) *AppClientFec {
 	ac := new(AppClientFec)
 	addr, err := net.ResolveUDPAddr("udp4", ":"+listenPort)
 	misc.CheckErr(err)
@@ -38,6 +39,7 @@ func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCo
 	ac.parity = parity
 	ac.duration = duration
 	ac.codec = icodec
+	ac.stageTm = stm
 	ac.encodePool = datastructure.NewDataBufferPool()
 	ac.decodeResult = make([]*datastructure.DataBuffer, seg)
 	for i := range ac.decodeResult {
@@ -70,34 +72,34 @@ func (ac *AppClientFec) Start() {
 
 func (ac *AppClientFec) socketToDevice() {
 	buffer := make([]byte, 2000)
-	sb := codec.NewStageBuffer(ac.seg)
 	fullDataBuffer := make([]byte, 2000*ac.seg)
+	sb := codec.NewStageBuffer(ac.codec, ac.seg, fullDataBuffer, time.Duration(ac.stageTm)*time.Millisecond, func(sb *codec.StageBuffer, resultData []byte, realLength int) {
+		encodeResult := make([]*datastructure.DataBuffer, ac.seg+ac.parity)
+		for i := range encodeResult {
+			encodeResult[i] = ac.encodePool.PoolGet()
+		}
+
+		ac.codec.Encode(resultData, realLength, encodeResult)
+		if ac.duration > 0 {
+			ac.il.Put(encodeResult)
+		} else {
+			for i := range encodeResult {
+				item := encodeResult[i]
+				if ac.clientConn != nil {
+					ac.clientConn.Write(item.Data[:item.Length], false)
+				}
+				ac.encodePool.PoolPut(item)
+			}
+		}
+	})
 
 	for {
 		length, addr, err := ac.conn.ReadFromUDP(buffer)
 		misc.CheckErr(err)
 		ac.connAddr = addr
 		data := buffer[:length]
-		encodeResult := make([]*datastructure.DataBuffer, ac.seg+ac.parity)
 
-		sb.Append(data, uint16(length), fullDataBuffer, ac.codec, func(cSb *codec.StageBuffer, resultData []byte, realLength int) {
-			for i := range encodeResult {
-				encodeResult[i] = ac.encodePool.PoolGet()
-			}
-
-			ac.codec.Encode(resultData, realLength, encodeResult)
-			if ac.duration > 0 {
-				ac.il.Put(encodeResult)
-			} else {
-				for i := range encodeResult {
-					item := encodeResult[i]
-					if ac.clientConn != nil {
-						ac.clientConn.Write(item.Data[:item.Length], false)
-					}
-					ac.encodePool.PoolPut(item)
-				}
-			}
-		})
+		sb.Append(data, uint16(length))
 	}
 }
 

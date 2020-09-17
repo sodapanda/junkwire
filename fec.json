@@ -20,6 +20,7 @@
         "enable": true,
         "seg": 20,
         "parity": 10,
+        "stageTimeout": 8,
         "duration": 0,
         "cap": 500,
         "row": 1000
