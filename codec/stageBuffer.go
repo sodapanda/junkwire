@@ -15,13 +15,12 @@ type StageBuffer struct {
 	cursor       int
 	resultBuffer []byte
 	waitTime     time.Duration
-	fullChann    chan bool
 	tm           *time.Timer
 	lock         *sync.Mutex
-	channClosed  bool
 	callback     func(*StageBuffer, []byte, int)
 	icodec       *FecCodec
-	done         chan bool
+	fullCh       chan bool
+	waitDoneCh   chan bool
 }
 
 //NewStageBuffer new
@@ -34,10 +33,10 @@ func NewStageBuffer(icodec *FecCodec, cap int, rb []byte, timeout time.Duration,
 	sbuffer.resultBuffer = rb
 	sbuffer.waitTime = timeout
 	sbuffer.lock = new(sync.Mutex)
-	sbuffer.fullChann = make(chan bool)
-	sbuffer.done = make(chan bool)
 	sbuffer.callback = callback
 	sbuffer.icodec = icodec
+	sbuffer.fullCh = make(chan bool)
+	sbuffer.waitDoneCh = make(chan bool)
 	return sbuffer
 }
 
@@ -62,40 +61,42 @@ func (sb *StageBuffer) Append(data []byte, length uint16) {
 				fmt.Println("reset on not stop timer")
 			}
 		}
-		sb.channClosed = false
-		go func() {
+		go func() { //todo leak
 			select {
-			case <-sb.fullChann:
-				fullCount++
-				// fmt.Println("满了", fullCount)
-				sb.lock.Lock()
-				sb.sendOut()
-				sb.lock.Unlock()
-				sb.done <- true
 			case <-sb.tm.C:
-				sb.channClosed = true
 				sb.lock.Lock()
-				sb.sendOut()
+				if sb.size == 0 {
+					//空 不操作
+					fmt.Println("go2 wake up timer size 0")
+					sb.waitDoneCh <- true
+				}
+				if sb.size > 0 && sb.size < sb.capacity {
+					//超时没满 发送数据 不用通知
+					sb.sendOut()
+				}
+
+				if sb.size == sb.capacity {
+					//超时 满了:不发送数据 通知
+					sb.waitDoneCh <- true
+				}
 				sb.lock.Unlock()
+			case <-sb.fullCh:
+				//没超时
+				sb.waitDoneCh <- true
 			}
 		}()
-
 		sb.lock.Unlock()
 	} else if sb.size == sb.capacity { //如果满了 发出去
+		sb.sendOut()
 		sb.lock.Unlock()
-		sb.fullChann <- true
-		<-sb.done
-		sb.lock.Lock()
-		stopFlag := sb.tm.Stop() //true:调用stop的时候还没到期 false:调用stop的时候已经到期了 需要检查chann有没有关闭
-		if !stopFlag {
-			// fmt.Println("stop false")
-			if !sb.channClosed {
-				// fmt.Println("chann not closed when full")
-				<-sb.tm.C
-				sb.channClosed = true
-			}
+		expr := !sb.tm.Stop() //true:调用stop的时候还没到期 false:调用stop的时候已经到期了 需要检查chann有没有关闭
+		if expr {
+			fmt.Println("full,go2 waiting")
+			<-sb.waitDoneCh
+		} else {
+			sb.fullCh <- true
+			<-sb.waitDoneCh
 		}
-		sb.lock.Unlock()
 	} else {
 		sb.lock.Unlock()
 	}
