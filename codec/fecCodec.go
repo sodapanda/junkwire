@@ -113,9 +113,13 @@ func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer)
 	row[ftp.index] = poolFtp
 
 	gotCount := 0
-	for _, v := range row {
+	allSegGot := false
+	for i, v := range row {
 		if v != nil {
 			gotCount++
+		}
+		if i == codec.segCount-1 && gotCount == codec.segCount {
+			allSegGot = true
 		}
 	}
 
@@ -123,20 +127,24 @@ func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer)
 		return false
 	}
 
-	for i := range codec.decodeTempWorkspace {
-		codec.decodeTempWorkspace[i] = nil
-	}
-
 	for i := range row {
 		thisFtp := row[i]
 		if thisFtp != nil {
 			codec.decodeTempWorkspace[i] = thisFtp.data[:thisFtp.len]
+		} else {
+			codec.decodeTempWorkspace[i] = make([]byte, 0, len(ftp.data))
 		}
 	}
 
-	codec.encoder.Reconstruct(codec.decodeTempWorkspace)
+	if !allSegGot {
+		codec.encoder.Reconstruct(codec.decodeTempWorkspace)
+	}
+
 	fCursor := 0
-	for _, data := range codec.decodeTempWorkspace {
+	for i, data := range codec.decodeTempWorkspace {
+		if i == codec.segCount {
+			break
+		}
 		copy(codec.fullPacketHolder[fCursor:], data)
 		fCursor = fCursor + len(data)
 	}
