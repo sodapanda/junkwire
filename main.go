@@ -51,6 +51,10 @@ func ctlServer() {
 	http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, mCodec.Dump())
 	})
+
+	http.HandleFunc("/lenkind", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, mCodec.DumpLenKind())
+	})
 	http.ListenAndServe(":8080", nil)
 }
 

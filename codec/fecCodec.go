@@ -24,6 +24,7 @@ type FecCodec struct {
 	tmpPool             [][]byte //因为每次fec桶大小不一样
 	currentID           uint64
 	fullPacketHolder    []byte //分包合并然后拆分用的内存空间
+	lenKindMap          map[int]int
 }
 
 //NewFecCodec new
@@ -33,6 +34,7 @@ func NewFecCodec(segCount int, fecSegCount int, decodeMapCap int) *FecCodec {
 	codec.fecSegCount = fecSegCount
 	codec.encodeWorkspace = make([][]byte, segCount+fecSegCount)
 	codec.decodeLinkMap = make(map[uint64][]*FtPacket)
+	codec.lenKindMap = make(map[int]int)
 	codec.keyList = list.New()
 	codec.decodeMapCapacity = decodeMapCap
 	codec.decodeTempWorkspace = make([][]byte, segCount+fecSegCount)
@@ -138,6 +140,16 @@ func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer)
 
 	if !allSegGot {
 		codec.encoder.Reconstruct(codec.decodeTempWorkspace)
+
+		//
+		ftpDataLen := len(ftp.data)
+		_, lenKindFound := codec.lenKindMap[ftpDataLen]
+		if !lenKindFound {
+			codec.lenKindMap[ftpDataLen] = 1
+		} else {
+			codec.lenKindMap[ftpDataLen] = codec.lenKindMap[ftpDataLen] + 1
+		}
+		//
 	}
 
 	fCursor := 0
@@ -196,5 +208,15 @@ func (codec *FecCodec) Dump() string {
 		fmt.Fprintf(&sb, "\n")
 	}
 	fmt.Fprintf(&sb, "not complete row %d", inCompCount)
+	return sb.String()
+}
+
+//DumpLenKind lenkind
+func (codec *FecCodec) DumpLenKind() string {
+	var sb strings.Builder
+	for lenKind, count := range codec.lenKindMap {
+		fmt.Fprintf(&sb, "%d:%d\n", lenKind, count)
+	}
+	fmt.Fprintf(&sb, "total kind:%d\n", len(codec.lenKindMap))
 	return sb.String()
 }
