@@ -16,19 +16,26 @@ type keeper struct {
 	dataBuffer []byte
 	lock       *sync.Mutex
 	stopFlag   bool
+	stopChan   chan string
+	running    bool
 }
 
-func newKeeper(cc *ClientConn, lostCallback func()) *keeper {
+func newKeeper(cc *ClientConn, stopChan chan string, lostCallback func()) *keeper {
 	kp := new(keeper)
 	kp.callback = lostCallback
 	kp.dataBuffer = make([]byte, 8)
 	kp.lock = new(sync.Mutex)
 	kp.cc = cc
 	kp.stopFlag = false
+	kp.running = false
+	kp.stopChan = stopChan
 	return kp
 }
 
 func (kp *keeper) start() {
+	misc.PLog("kp start")
+	kp.stopFlag = false
+	kp.running = true
 	for {
 		kp.kpMap = make(map[uint64]uint64)
 		for i := 0; i < 5; i++ {
@@ -55,6 +62,11 @@ func (kp *keeper) start() {
 			break
 		}
 	}
+	kp.running = false
+
+	misc.PLog("kp loop break")
+	kp.stopChan <- "kpstop"
+	misc.PLog("kp chan send")
 }
 
 func (kp *keeper) send() {
@@ -79,5 +91,16 @@ func (kp *keeper) rcv(timeStamp uint64) {
 }
 
 func (kp *keeper) stop() {
-	kp.stopFlag = true
+	misc.PLog("stop called")
+	kp.lock.Lock()
+	defer kp.lock.Unlock()
+	if kp.running {
+		kp.stopFlag = true
+	} else {
+		misc.PLog("    kp not running ")
+		if kp.stopChan != nil {
+			misc.PLog("    kp send chan in stop")
+			kp.stopChan <- "stop"
+		}
+	}
 }

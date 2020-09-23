@@ -59,7 +59,9 @@ type clientHandler struct {
 func (ch clientHandler) OnData(data []byte) {
 	ch.ac.rcv++
 	_, err := ch.ac.conn.WriteToUDP(data, ch.ac.connAddr)
-	misc.CheckErr(err)
+	if err != nil {
+		misc.PLog(err.Error())
+	}
 }
 func (ch clientHandler) OnDisconnect(cc *connection.ClientConn) {}
 func (ch clientHandler) OnConnect(cc *connection.ClientConn)    {}

@@ -37,6 +37,7 @@ type ClientConn struct {
 	tunStopChan         chan string
 	readLoopStopChan    chan string
 	kp                  *keeper
+	kpStopChan          chan string
 }
 
 //NewClientConn new client connection
@@ -51,7 +52,8 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.dstPort = dstPort
 	cc.tunStopChan = make(chan string, 1)
 	cc.readLoopStopChan = make(chan string, 1)
-	cc.kp = newKeeper(cc, func() {
+	cc.kpStopChan = make(chan string, 1)
+	cc.kp = newKeeper(cc, cc.kpStopChan, func() {
 		cc.tun.Interrupt()
 		cc.payloadsFromUpLayer.Interrupt()
 		cc.handler.OnDisconnect(cc)
@@ -89,6 +91,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 
 		cc.tun.Interrupt()
 		cc.payloadsFromUpLayer.Interrupt()
+		cc.kp.stop()
 		cc.handler.OnDisconnect(cc)
 	})
 
@@ -147,6 +150,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 	cc.fsm.AddRule("error", ds.Event{Name: "sdrst"}, "stop", func(ev ds.Event) {
 		cc.tun.Interrupt()
 		cc.payloadsFromUpLayer.Interrupt()
+		cc.kp.stop()
 		cc.handler.OnDisconnect(cc)
 		//todo 清理队列里没消费的
 		misc.PLog("stop state")
@@ -166,8 +170,11 @@ func (cc *ClientConn) AddHandler(handler ClientConnHandler) {
 
 //WaitStop block wait for stop
 func (cc *ClientConn) WaitStop() {
+	misc.PLog("start wait stop ")
 	<-cc.readLoopStopChan
 	<-cc.tunStopChan
+	<-cc.kpStopChan
+	misc.PLog("wait stop end")
 }
 
 func (cc *ClientConn) reset() {
@@ -205,8 +212,9 @@ func (cc *ClientConn) readLoop(stopChan chan string) {
 			continue
 		}
 		if cp.window != 6543 {
-			misc.PLog("read window is not 6543!!Danger")
+			misc.PLog("read window is not 6543!!Danger Drop")
 			misc.PLog(fmt.Sprintf("    %s:%d win:%d\n", cp.srcIP.String(), cp.srcPort, cp.window))
+			continue
 		}
 		cc.lastRcvSeq = cp.seqNum
 		cc.lastRcvAck = cp.ackNum

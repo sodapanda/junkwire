@@ -48,7 +48,10 @@ type handler struct {
 }
 
 func (h handler) OnData(data []byte, conn *connection.ServerConn) {
-	h.ser.conn.Write(data)
+	_, err := h.ser.conn.Write(data)
+	if err != nil {
+		misc.PLog(err.Error())
+	}
 }
 
 func (h handler) OnDisconnect() {

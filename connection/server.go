@@ -191,8 +191,9 @@ func (sc *ServerConn) readLoop() {
 		}
 
 		if cp.window != 6543 {
-			misc.PLog("read window is not 6543!!Danger")
+			misc.PLog("read window is not 6543!!Danger.Drop")
 			misc.PLog(fmt.Sprintf("    %s:%d win:%d\n", cp.srcIP.String(), cp.srcPort, cp.window))
+			continue
 		}
 		sc.lastRcvSeq = cp.seqNum
 		sc.lastRcvAck = cp.ackNum
@@ -201,7 +202,11 @@ func (sc *ServerConn) readLoop() {
 			sc.lastRcvLen = 1
 		}
 
+		//心跳包 如果不是在estb状态 不要回应心跳
 		if cp.push {
+			if sc.fsm.Current != "estb" {
+				continue
+			}
 			sc.Write(cp.payload, true)
 			sc.tun.Recycle(dataBuffer)
 			continue
