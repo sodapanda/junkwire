@@ -91,5 +91,7 @@ func (cp *ConnPacket) decode(data []byte) {
 	cp.srcPort = tcpHeader.SourcePort()
 	cp.dstPort = tcpHeader.DestinationPort()
 	cp.window = tcpHeader.WindowSize()
-	cp.payload = data[header.IPv4MinimumSize+header.TCPMinimumSize:] //todo 注意tcp mss的影响
+	ipHeaderLen := ipHeader.HeaderLength()
+	tcpHeaderLen := tcpHeader.DataOffset()
+	cp.payload = data[ipHeaderLen+tcpHeaderLen:]
 }
