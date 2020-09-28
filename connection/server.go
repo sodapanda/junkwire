@@ -34,12 +34,12 @@ type ServerConn struct {
 }
 
 //NewServerConn create server connection
-func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface) *ServerConn {
+func NewServerConn(srcIP string, srcPort uint16, tun *device.TunInterface, qLen int) *ServerConn {
 	sc := new(ServerConn)
 	sc.tun = tun
 	sc.srcIP = tcpip.Address(net.ParseIP(srcIP).To4())
 	sc.srcPort = srcPort
-	sc.payloadsFromUpLayer = ds.NewBlockingQueue(500)
+	sc.payloadsFromUpLayer = ds.NewBlockingQueue(qLen)
 	sc.pool = ds.NewDataBufferPool()
 
 	sc.fsm = ds.NewFsm("stop")

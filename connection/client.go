@@ -41,10 +41,10 @@ type ClientConn struct {
 }
 
 //NewClientConn new client connection
-func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort uint16, dstPort uint16) *ClientConn {
+func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort uint16, dstPort uint16, qLen int) *ClientConn {
 	cc := new(ClientConn)
 	cc.pool = ds.NewDataBufferPool()
-	cc.payloadsFromUpLayer = ds.NewBlockingQueue(500)
+	cc.payloadsFromUpLayer = ds.NewBlockingQueue(qLen)
 	cc.tun = tun
 	cc.srcIP = tcpip.Address(net.ParseIP(srcIP).To4())
 	cc.dstIP = tcpip.Address(net.ParseIP(dstIP).To4())

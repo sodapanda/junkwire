@@ -61,7 +61,7 @@ func ctlServer() {
 func client(config *Config) {
 	tun := device.NewTunInterface("faketcp", config.Client.Tun.DeviceIP, 100)
 
-	fmt.Println("continue?")
+	fmt.Printf("qlen:%d,go?", config.QueueLen)
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
 	fmt.Println("start,please see log")
@@ -92,7 +92,7 @@ func client(config *Config) {
 		rdm := rand.Intn(10000)
 		srcPort = srcPort + rdm
 
-		cc := connection.NewClientConn(tun, config.Client.Tun.SrcIP, serConf.IP, uint16(srcPort), uint16(serPort))
+		cc := connection.NewClientConn(tun, config.Client.Tun.SrcIP, serConf.IP, uint16(srcPort), uint16(serPort), config.QueueLen)
 		client.SetClientConn(cc)
 		cc.WaitStop()
 		misc.PLog("client main loop stop restart")
@@ -103,14 +103,14 @@ func client(config *Config) {
 func server(config *Config) {
 	tun := device.NewTunInterface("faketcp", config.Server.Tun.DeviceIP, 100)
 
-	fmt.Println("continue?")
+	fmt.Printf("qlen:%d,go?", config.QueueLen)
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
 	fmt.Println("start,please see log")
 
 	serPort, _ := strconv.Atoi(config.Server.Tun.Port)
 
-	sc := connection.NewServerConn(config.Server.Tun.SrcIP, uint16(serPort), tun)
+	sc := connection.NewServerConn(config.Server.Tun.SrcIP, uint16(serPort), tun, config.QueueLen)
 
 	var sv application.IServer
 	if config.Fec.Enable {
@@ -128,8 +128,9 @@ func server(config *Config) {
 
 //Config config
 type Config struct {
-	Mode   string `json:"mode"`
-	Server struct {
+	Mode     string `json:"mode"`
+	QueueLen int    `json:"queue"`
+	Server   struct {
 		Tun struct {
 			DeviceIP string `json:"deviceIP"`
 			Port     string `json:"port"`

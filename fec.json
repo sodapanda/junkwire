@@ -1,5 +1,6 @@
 {
     "mode": "client",
+    "queue": 5,
     "client": {
         "tun": {
             "deviceIP": "10.1.1.1",
