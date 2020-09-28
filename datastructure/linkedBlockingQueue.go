@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"sync"
+
+	"github.com/sodapanda/junkwire/misc"
 )
 
 //BlockingQueue 阻塞队列
@@ -35,8 +37,13 @@ func NewBlockingQueue(capacity int) *BlockingQueue {
 func (q *BlockingQueue) Put(data *DataBuffer) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-	for q.size == q.capacity {
+	for q.size == q.capacity && !q.interrupt {
 		q.notFull.Wait()
+	}
+	if q.interrupt {
+		q.interrupt = false
+		misc.PLog("return from interrupted Put")
+		return
 	}
 	q.dataList.PushBack(data)
 	q.size++

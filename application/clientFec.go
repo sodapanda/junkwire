@@ -52,7 +52,7 @@ func NewAppClientFec(listenPort string, seg int, parity int, icodec *codec.FecCo
 		misc.PLog(fmt.Sprintf("interval %d", inv))
 
 		ac.il = codec.NewInterlace(rowCount, inv*time.Microsecond, func(dbf *datastructure.DataBuffer) {
-			if ac.clientConn != nil {
+			if ac.clientConn != nil && ac.clientConn.GetState() == "estb" {
 				ac.clientConn.Write(dbf.Data[:dbf.Length], false)
 			}
 			ac.encodePool.PoolPut(dbf)
@@ -85,7 +85,7 @@ func (ac *AppClientFec) socketToDevice() {
 		} else {
 			for i := range encodeResult {
 				item := encodeResult[i]
-				if ac.clientConn != nil {
+				if ac.clientConn != nil && ac.clientConn.GetState() == "estb" {
 					ac.clientConn.Write(item.Data[:item.Length], false)
 				}
 				ac.encodePool.PoolPut(item)
@@ -99,7 +99,9 @@ func (ac *AppClientFec) socketToDevice() {
 		ac.connAddr = addr
 		data := buffer[:length]
 
-		sb.Append(data, uint16(length))
+		if ac.clientConn != nil && ac.clientConn.GetState() == "estb" {
+			sb.Append(data, uint16(length))
+		}
 	}
 }
 

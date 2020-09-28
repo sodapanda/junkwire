@@ -289,3 +289,11 @@ func (cc *ClientConn) q2Tun(stopChan chan string) {
 
 	stopChan <- "queue to tun stop"
 }
+
+//GetState GetState
+func (cc *ClientConn) GetState() string {
+	if cc.fsm != nil {
+		return cc.fsm.Current
+	}
+	return ""
+}
