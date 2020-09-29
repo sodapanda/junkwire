@@ -85,7 +85,6 @@ func client(config *Config) {
 			connTimes = 0
 		}
 		serConf := config.Client.Tun.Peers[connTimes]
-		client.SetClientConn(nil)
 		serPort, _ := strconv.Atoi(serConf.Port)
 
 		//防止一只重复使用一个src port 可能对nat有好处
@@ -95,6 +94,7 @@ func client(config *Config) {
 		cc := connection.NewClientConn(tun, config.Client.Tun.SrcIP, serConf.IP, uint16(srcPort), uint16(serPort), config.QueueLen)
 		client.SetClientConn(cc)
 		cc.WaitStop()
+		client.SetClientConn(nil)
 		misc.PLog("client main loop stop restart")
 		time.Sleep(1 * time.Second)
 	}

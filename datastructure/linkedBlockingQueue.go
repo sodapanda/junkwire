@@ -70,11 +70,14 @@ func (q *BlockingQueue) Get() *DataBuffer {
 	return rst
 }
 
+//Interrupt stop
 func (q *BlockingQueue) Interrupt() {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	q.interrupt = true
 	q.notEmpty.Signal()
+	q.notFull.Signal()
+	misc.PLog("interrupt called")
 }
 
 //GetWithTimeout Get item,block with given time

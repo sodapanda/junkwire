@@ -9,6 +9,7 @@ import (
 
 	"github.com/klauspost/reedsolomon"
 	"github.com/sodapanda/junkwire/datastructure"
+	"github.com/sodapanda/junkwire/misc"
 )
 
 //FecCodec fec
@@ -110,7 +111,7 @@ func (codec *FecCodec) Decode(ftp *FtPacket, result []*datastructure.DataBuffer)
 
 	row := codec.decodeLinkMap[ftp.gID]
 	if row[ftp.index] != nil {
-		fmt.Println("Dup!", ftp.gID, ftp.index)
+		misc.PLog(fmt.Sprintf("Dup!,%d,%d", ftp.gID, ftp.index))
 	}
 	row[ftp.index] = poolFtp
 
