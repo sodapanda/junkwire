@@ -1,21 +1,144 @@
-* JunkWire
+JunkWire
 
-你的vps线路是不是懒得一批？每次浏览网页都他娘的像吃屎一样不？不知道你是不是，反正我是，吃屎吃了很多很多。
+功能：提高烂网的可用性。
 
-你说了，不慌，俺买iplc专线，俺有钱。你有钱你买去吧，那玩意好是好，但是贵啊，一块钱买不到1G吧。带宽还小。那我要是想更新个游戏呢？几十上百G 咋整？
+UDP伪装TCP：伪装为TCP之后减少QoS
 
-人气急了就喜欢自己写代码，然后我就写了这个。他有什么用处呢？
+可配置多服务器，自动断线重连换服，上层无感知：心跳检测，每秒发送5个心跳包。如果5个心跳包都丢失的话就切换到下一个服务器。2秒即可完成。
 
-UDP伪装TCP：伪装了之后就不怕Qos了啊哥哥。
+可选FEC前向纠错：20个原始包加10个纠错包，就能将丢包率降低到万分之一。
 
-可配置多服务器，自动断线重连换服，上层无感知哥哥：你买的垃圾vps是不是经常断流，断流了就去tg群里骂老板，老板你妈死了，广移断流，中山断流，上海cn2也断流。不要慌，你花的那几块钱有鸡用就不错了，你还想不断流，你怎么不买独服呢你。买俩烂笔nat好了，用junkwire 心跳检测，一秒自动换服重连，中山断了换佛山，佛山断了换中山，嘿嘿嘿你来啊。
+交织编码：可以将短时间集中的丢包均匀开，防止原始包和纠错包都丢掉。
 
-FEC前向纠错：这个玩意可好了给你讲，不是傻乎乎的翻倍发包哦，这个是大神所罗门编码的纠错码，20个原始包加10个纠错码可就能把10%的丢包干到万分之一以下。
+配置方法
 
-交织编码：你上学的时候老师是不是教过你矩阵转置，你觉得老师像个傻逼一样哔哔哔。但是用在抗丢包上是真的见效。公网上丢包不是一个一个的丢，他是一个村一个村的丢。一丢就是一村，灭门惨案。所以为了防止绝后，你一家人得住在好几个村才行。得把原始包和纠错包分散开。
+junkwire使用tun设备进行数据传送，所以先确定运行环境支持tun设备。运行后会创建一个tun设备叫faketcp，这个设备ip地址可以通过配置文件配置。一般写成10.1.1.1即可，只要不跟自己本地网络环境冲突就行。运行后会虚拟一个网络设备10.1.1.2。
 
-懂得苟且偷生：如果机房发现我们胡搞，看我们不顺眼了，他会发一堆reset妄图搞死我们，但是我们怕吗？本身我们不怕，但是为了存活，要学会迎合强权。机房你弄我，我服软，我隔一秒换个端口继续来。嘿嘿嘿。。。
+服务端配置
 
-这个东西配置起来比较麻烦。
+首先配置服务端DNAT，把对应端口的包转给junkwire处理。
 
-一般的用法是，两个中转服务器，比如温州三线和中山移动，连接到同一个落地机，比如vultr 日本。这样就牵涉到一大堆配置了
+首先开启ipv4转发，在 /etc/sysctl.conf 文件中添加 net.ipv4.ip_forward=1 然后运行sysctl -p使其生效。
+
+添加iptables规则 iptables -t nat -A PREROUTING -i 网卡名 -d 网卡IP -p tcp --dport 17021(客户端连的端口) -j DNAT --to-destination 10.1.1.2:17021
+
+wireguard配置举例，根据实际情况改动
+
+```
+    [Interface]
+    Address = 10.200.201.1/24
+    ListenPort = 21007
+    #ListenPort = 12273
+    PrivateKey = xxx
+    MTU = 1340
+
+    [Peer]
+    PublicKey = xxx
+    AllowedIPs = 10.200.201.2/32
+    PersistentKeepalive = 25
+```
+
+服务端junkwire配置文件举例
+
+```
+    {
+    "mode": "server",
+    "queue":500,
+    "server": {
+        "tun": {
+            "deviceIP": "10.1.1.1",
+            "port": "17021",
+            "srcIP": "10.1.1.2"
+        },
+        "socket": {
+            "dstIP": "127.0.0.1",
+            "dstPort": "21007"
+        }
+    },
+    "fec": {
+        "enable":false, //是否启用fec
+        "seg": 20, //几个数据包
+        "parity": 20, //几个纠错包
+        "duration":0, //交织编码的时长
+	    "stageTimeout":8, //桶没装满的话最长等多久
+	    "cap":500, 
+	    "row":1000
+    }
+    }
+```
+
+启动junkwire  ./junkwire -c 配置文件
+
+启动wireguard wg-quick up wg0
+
+
+客户端配置
+
+客户端需要让虚拟设备10.1.1.2的数据顺利发送，需要snat
+
+iptables -t nat -A POSTROUTING -s 10.1.1.2 -p tcp -o eth0 -j SNAT --to-source 本机网卡ip
+
+路由配置，防止出口ip也被带进了wireguard
+
+ip route add 服务端ip/32 via 本地网关 dev eth0
+
+wireguard配置
+
+```
+[Interface]
+Address = 10.200.201.2/24
+PrivateKey = yJAu/oI+Oo/Mhswqbm3I/3PWYi+WSxX7JpTQ8IoQqWU=
+MTU = 1340
+
+[Peer]
+PublicKey = 5/SgVv3hc3f5Fa/XoLo4isBzyrwwATs5sfQv7oWhiTM=
+Endpoint = 127.0.0.1:21007
+AllowedIPs = 0.0.0.0/1,128.0.0.0/1
+PersistentKeepalive = 25
+```
+
+junkwire配置举例
+
+```
+{
+    "mode": "client",
+    "queue":500,
+    "client": {
+        "tun": {
+            "deviceIP": "10.1.1.1",
+            "port": "8978",
+            "srcIP": "10.1.1.2",
+            "peers": [
+								{
+								    "ip":"线路1",
+								    "port":"50018"
+								},
+								{
+								    "ip":"线路2",
+								    "port":"17021"
+								},
+								{
+								    "ip":"线路3",
+								    "port":"17021"
+								}
+            ]
+        },
+        "socket": {
+            "listenPort": "21007"
+        }
+    },
+    "fec": {
+        "enable":false,
+        "seg": 20,
+        "parity": 10,
+        "stageTimeout": 8,
+        "duration": 0,
+        "cap": 500,
+        "row": 1000
+    }
+}
+```
+
+启动junkwire ./junkwire -c 配置文件
+
+启动wireguard wg-quick up wg0
