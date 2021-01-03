@@ -24,8 +24,6 @@ var mCodec *codec.FecCodec
 
 func main() {
 	go ctlServer()
-	misc.Init()
-	misc.PLog("start")
 
 	fConfigPath := flag.String("c", "config.json", "config file path")
 	flag.Parse()
@@ -37,6 +35,9 @@ func main() {
 	configByte, _ := ioutil.ReadAll(configFile)
 	mConfig := new(Config)
 	json.Unmarshal(configByte, mConfig)
+
+	misc.Init(mConfig.LogFile)
+	misc.PLog("start")
 
 	isServer := mConfig.Mode == "server"
 
@@ -59,7 +60,7 @@ func ctlServer() {
 }
 
 func client(config *Config) {
-	tun := device.NewTunInterface("faketcp", config.Client.Tun.DeviceIP, 100)
+	tun := device.NewTunInterface(config.Name, config.Client.Tun.DeviceIP, 100)
 
 	fmt.Printf("qlen:%d,go?", config.QueueLen)
 	reader := bufio.NewReader(os.Stdin)
@@ -101,7 +102,7 @@ func client(config *Config) {
 }
 
 func server(config *Config) {
-	tun := device.NewTunInterface("faketcp", config.Server.Tun.DeviceIP, 100)
+	tun := device.NewTunInterface(config.Name, config.Server.Tun.DeviceIP, 100)
 
 	fmt.Printf("qlen:%d,go?", config.QueueLen)
 	reader := bufio.NewReader(os.Stdin)
@@ -128,8 +129,10 @@ func server(config *Config) {
 
 //Config config
 type Config struct {
+	Name     string `json:"name"`
 	Mode     string `json:"mode"`
 	QueueLen int    `json:"queue"`
+	LogFile  string `json:"logFile"`
 	Server   struct {
 		Tun struct {
 			DeviceIP string `json:"deviceIP"`

@@ -17,8 +17,8 @@ func CheckErr(e error) {
 var logger *log.Logger
 
 //Init init
-func Init() {
-	f, err := os.OpenFile("junkwire.log",
+func Init(logfile string) {
+	f, err := os.OpenFile(logfile,
 		os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println(err.Error())
