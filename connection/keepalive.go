@@ -38,7 +38,7 @@ func (kp *keeper) start() {
 	kp.running = true
 	for {
 		kp.kpMap = make(map[uint64]uint64)
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 10; i++ {
 			time.Sleep(100 * time.Millisecond)
 			kp.send()
 		}
@@ -53,7 +53,7 @@ func (kp *keeper) start() {
 			}
 		}
 		kp.lock.Unlock()
-		if lossCount > 4 {
+		if lossCount > 9 {
 			misc.PLog("disconnect! keep alive loss")
 			kp.callback()
 			break

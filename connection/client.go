@@ -81,7 +81,7 @@ func NewClientConn(tun *device.TunInterface, srcIP string, dstIP string, srcPort
 		cp.encode(result)
 		cc.tun.Write(result)
 		go func() {
-			time.Sleep(1 * time.Second)
+			time.Sleep(6 * time.Second)
 			cc.fsm.OnEvent(ds.Event{Name: "synTimeout"})
 		}()
 	})
